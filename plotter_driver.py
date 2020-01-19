@@ -2,30 +2,154 @@ import serial
 import threading
 import time
 import queue
+import re
+import wx
+
+
+WARN  = 1
+FATAL = 2
+ERROR = 3
+INFO  = 4
+TRACE = 5
+
 
 class PlotterEvent:
     def __init__(self, *args, **kw):
         super(PlotterEvent, self).__init__(*args, **kw)
 
-class PlotterConnectEvent:
+class PlotterConnectEvent(PlotterEvent):
     def __init__(self, connected, *args, **kw):
         super(PlotterConnectEvent, self).__init__(*args, **kw)
         self.connected = connected
 
+class CommandProcessedEvent(PlotterEvent):
+    def __init__(self, command, *args, **kw):
+        super(CommandProcessedEvent, self).__init__(*args, **kw)
+        self.command = command
 
+
+class GCodeCommand:
+    def __init__(self, *args, **kw):
+        super(GCodeCommand, self).__init__(*args, **kw)
+        self.processed = False
+
+    def command(self):
+        return b''
+
+    def draw(self, context):
+        pass
+
+class GCodeSettingsCommand(GCodeCommand):
+    def __init__(self, *args, **kw):
+        super(GCodeSettingsCommand, self).__init__(*args, **kw)
+
+    def command(self):
+        return b'$$\n'
+
+
+class GCodeMoveCommand(GCodeCommand):
+    def __init__(self, x, y, speed, *args, **kw):
+        super(GCodeMoveCommand, self).__init__(*args, **kw)
+        self.x = x
+        self.y = y
+        self.speed = speed
+
+    def command(self):
+        return b'G1 X%.2f Y%.2f F%.2f\n' % (self.x, self.y, self.speed)
+
+    def draw(self, context):
+        pen_y = context['pen_y'] if ('pen_y' in context) else 900
+        if pen_y >= 900:
+            dc = context['dc']
+            x1 = context['x'] if ('x' in context) else 0
+            y1 = context['y'] if ('y' in context) else 0
+            dc.SetPen(wx.Pen("black", style=wx.SOLID))
+            dc.DrawLine(x1, y1, self.x, self.y)
+            context['x'] = self.x
+            context['y'] = self.y
+
+
+
+class GCodeMovePenCommand(GCodeCommand):
+    def __init__(self, pos, *args, **kw):
+        super(GCodeMovePenCommand, self).__init__(*args, **kw)
+        self.pos = pos
+
+    def command(self):
+        return b'M3 S%.2f\n' % (self.pos)
+
+    def draw(self, context):
+        dc = context['dc']
+        context['pen_y'] = self.pos
+
+
+class GCodeWaitCommand(GCodeCommand):
+    def __init__(self, time, *args, **kw):
+        super(GCodeWaitCommand, self).__init__(*args, **kw)
+        self.time = time
+
+    def command(self):
+        return b'G4 P%.2f\n' % (self.time)
 
 class PlotterDriver:
     def __init__(self, port, *args, **kw):
         super(PlotterDriver, self).__init__(*args, **kw)
         self.line = f''
         self.port = port
+        self.event_queue = queue.Queue()
+        self.reset()
+
+    def reset(self):
         self.connected = False
-        self.queue = queue.Queue()
+        self.gcode_queue = []
+        self.send_limit = 100
+        self.queue_head = 0
+        self.settings = {}
+
 
     def start(self):
         self.thread = threading.Thread(target=self.read_input_thread)
         self.thread.setDaemon(1)
         self.thread.start()
+
+    def process_queue(self):
+        
+        while (self.queue_head < len(self.gcode_queue)):
+            head = self.gcode_queue[self.queue_head]
+
+            command = head.command()
+            command_len = len(command)
+            if (command_len > self.send_limit):
+                break
+
+            self.serial.write(command)
+            self.send_limit -= command_len
+            self.queue_head += 1
+            self.log(TRACE, command.decode("utf-8"))
+
+    def queue_command(self, command):
+         self.gcode_queue.append(command)
+         self.process_queue()
+
+    def process_response(self, response):
+        self.log(TRACE, response)
+
+        if response == f"Grbl 1.1h ['$' for help]":
+            self.queue_command(GCodeSettingsCommand())
+
+        m = re.compile(r'\$([0-9]+)=([0-9]+\.?[0-9]*).*').match(response)
+        if m != None:
+            self.settings[m[1]] = m[2]
+
+
+        if (response == "ok"):
+            head = self.gcode_queue.pop(0)
+            head.processed = True
+            self.event_queue.put(CommandProcessedEvent(head))
+            self.queue_head -= 1
+            self.send_limit += len(head.command())
+            self.process_queue()
+
 
     def read_input_thread(self):
         while (True):
@@ -37,7 +161,7 @@ class PlotterDriver:
                 try:
                     self.serial = serial.Serial(self.port, baudrate=115200)
                     self.connected = True
-                    self.queue.put(PlotterConnectEvent(True))
+                    self.event_queue.put(PlotterConnectEvent(True))
                     print ('')
                     print ('Connected')
 
@@ -52,10 +176,7 @@ class PlotterDriver:
                     b =  self.serial.read(size=1)
                     if b:
                         if b == b'\r':
-                            print(self.line)
-                            if self.line == f"Grbl 1.1h ['$' for help]":
-                                self.serial.write(b'$$\n')
-
+                            self.process_response(self.line)
                             self.line = f''
                         elif b == b'\r':
                             pass
@@ -63,10 +184,14 @@ class PlotterDriver:
                             pass
                         else:
                             self.line += b.decode("utf-8")
-                except Exception as e:
-                    self.connected = False
-                    self.queue.put(PlotterConnectEvent(False))
+
+                except serial.SerialException as e:
+                    self.reset()
+                    self.event_queue.put(PlotterConnectEvent(False))
                     print ('Connection lost!')
+
+    def log(self, level, string):
+        print(string)
 
 
 
@@ -77,8 +202,16 @@ if __name__ == '__main__':
     driver.start()
 
     while (True):
-        e = driver.queue.get()
-        print(e)
+        e = driver.event_queue.get()
+        if (isinstance(e, CommandProcessedEvent)):
+            if isinstance(e.command, GCodeSettingsCommand):
+                print(driver.settings)
+                for i in range(0, 100, 1):
+                    driver.queue_command(GCodeMoveCommand(0+i, 0, 50000))
+                    driver.queue_command(GCodeMoveCommand(100, 0+i, 50000))
+                    driver.queue_command(GCodeMoveCommand(100-i,  100, 50000))
+                    driver.queue_command(GCodeMoveCommand(0,  100-i, 50000))
+
 
     
 

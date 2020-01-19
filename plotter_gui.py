@@ -2,6 +2,7 @@
 
 import wx
 import plotter_driver as pd
+import queue
 
 
 class PlotterStatus(wx.Control):
@@ -31,15 +32,21 @@ class PlotterCanvas(wx.Control):
         wx.Panel.__init__(self, parent, id)
         self.SetBackgroundColour("white")
         self.Bind(wx.EVT_PAINT, self.on_paint)
+        self.commands = []
+        self.context = {}
 
     def on_paint(self, evt):
+        pass
         dc = wx.PaintDC(self)
         size = self.GetSize()
-        dc.SetUserScale(size.width / 1000, size.height / 1000)
-        dc.SetPen(wx.Pen("grey", style=wx.TRANSPARENT))
-        dc.SetBrush(wx.Brush("grey", wx.SOLID))
+        dc.SetUserScale(size.width / 100, size.height / 100)
 
-        dc.DrawRectangle(100, 100, 800, 800)
+        self.context['dc'] = dc
+        for command in self.commands:
+            command.draw(self.context)
+
+        self.context['dc'] = None
+
         del dc
     
 
@@ -78,10 +85,24 @@ class PlotterGUIFrame(wx.Frame):
     def read_plotter_queue(self, evt):
         while (True):
             try:
-                e = self.plotter_driver.queue.get(block=False)
+                e = self.plotter_driver.event_queue.get(block=False)
                 if (isinstance(e, pd.PlotterConnectEvent)):
                     self.plotter_status.connected = e.connected
                     self.plotter_status.Refresh()
+
+                if (isinstance(e, pd.CommandProcessedEvent)):
+                    self.plotter_canvas.commands.append(e.command)
+                    self.plotter_canvas.Refresh()
+
+                    if isinstance(e.command, pd.GCodeSettingsCommand):
+                        print(self.plotter_driver.settings)
+                        for i in range(0, 100, 10):
+                            self.plotter_driver.queue_command(pd.GCodeMoveCommand(0+i, 0, 50000))
+                            self.plotter_driver.queue_command(pd.GCodeMoveCommand(100, 0+i, 50000))
+                            self.plotter_driver.queue_command(pd.GCodeMoveCommand(100-i, 100, 50000))
+                            self.plotter_driver.queue_command(pd.GCodeMoveCommand(0,  100-i, 50000))
+
+
             except queue.Empty:
                 break
             
