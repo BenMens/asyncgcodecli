@@ -58,13 +58,17 @@ class GCodeMoveCommand(GCodeCommand):
         return b'G1 X%.2f Y%.2f F%.2f\n' % (self.x, self.y, self.speed)
 
     def draw(self, context):
-        pen_y = context['pen_y'] if ('pen_y' in context) else 900
+        pen_y = context['pen_y']
         if pen_y >= 900:
-            dc = context['dc']
-            x1 = context['x'] if ('x' in context) else 0
-            y1 = context['y'] if ('y' in context) else 0
-            dc.SetPen(wx.Pen("black", style=wx.SOLID))
-            dc.DrawLine(x1, y1, self.x, self.y)
+            gc = context['gc']
+            x1 = context['x']
+            y1 = context['y']
+            gc.SetPen(wx.Pen("black", width=3))
+            path = gc.CreatePath()
+            path.MoveToPoint(x1 * 10, y1 * 10)
+            path.AddLineToPoint(self.x * 10, self.y * 10)
+            gc.StrokePath(path)
+
             context['x'] = self.x
             context['y'] = self.y
 
@@ -189,6 +193,13 @@ class PlotterDriver:
                     self.reset()
                     self.event_queue.put(PlotterConnectEvent(False))
                     print ('Connection lost!')
+
+    def get_initial_context(self):
+        return {
+            'x': 0,
+            'y': 0,
+            'pen_y': 900
+        }
 
     def log(self, level, string):
         print(string)
