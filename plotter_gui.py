@@ -130,6 +130,8 @@ class PlotterGUIFrame(wx.Frame):
             self.plotter_driver.move(90,   10+i)
             self.plotter_driver.move(90-i, 90)
             self.plotter_driver.move(10,   90-i)
+        self.plotter_driver.pen_up()
+        self.plotter_driver.move(0, 0)
 
     def on_idle(self, evt):
         self.eventCount += 1
