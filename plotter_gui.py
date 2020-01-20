@@ -76,6 +76,9 @@ class PlotterGUIFrame(wx.Frame):
         self.flush_button = wx.Button(self.pnl_left, -1, label="Flush queue")
         self.Bind(wx.EVT_BUTTON, self.on_flush_button, self.flush_button)
 
+        self.draw_button = wx.Button(self.pnl_left, -1, label="Draw")
+        self.Bind(wx.EVT_BUTTON, self.on_draw_button, self.draw_button)
+
         self.plotter_canvas = PlotterCanvas(pnl, -1)
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -89,6 +92,7 @@ class PlotterGUIFrame(wx.Frame):
         sizer1.Add(self.pen_up_button,   wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM, 5).Expand())
         sizer1.Add(self.pen_down_button, wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM, 5).Expand())
         sizer1.Add(self.flush_button,    wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM, 5).Expand())
+        sizer1.Add(self.draw_button,    wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM | wx.TOP, 5).Expand())
         self.pnl_left.SetSizer(sizer1)
 
         self.eventCount = 0
@@ -116,6 +120,16 @@ class PlotterGUIFrame(wx.Frame):
     def on_flush_button(self, event):
         self.plotter_driver.flush_queue()
         
+    def on_draw_button(self, event):
+        self.plotter_driver.home()
+        self.plotter_driver.pen_up()
+        self.plotter_driver.move(10, 10)
+        self.plotter_driver.pen_down()
+        for i in range(0, 80, 1):
+            self.plotter_driver.move(10+i, 10)
+            self.plotter_driver.move(90,   10+i)
+            self.plotter_driver.move(90-i, 90)
+            self.plotter_driver.move(10,   90-i)
 
     def on_idle(self, evt):
         self.eventCount += 1
@@ -138,12 +152,6 @@ class PlotterGUIFrame(wx.Frame):
 
                     if isinstance(e.command, pd.GCodeSettingsCommand):
                         print(self.plotter_driver.settings)
-                        self.plotter_driver.home()
-                        for i in range(0, 100, 1):
-                            self.plotter_driver.move(0+i, 0, 50000)
-                            self.plotter_driver.move(100, 0+i, 50000)
-                            self.plotter_driver.move(100-i, 100, 5000)
-                            self.plotter_driver.move(0,  100-i, 50000)
 
             except queue.Empty:
                 break

@@ -222,10 +222,10 @@ class PlotterDriver(GrblDriver):
         self.queue_command(GCodeWaitCommand(1))
 
     def pen_down(self):
-        self.queue_command(GCodeMovePenCommand(400))
+        self.queue_command(GCodeMovePenCommand(900))
         self.queue_command(GCodeWaitCommand(1))
 
-    def move(self, x, y, speed = 1000):
+    def move(self, x, y, speed = 10000):
         self.queue_command(GCodeMoveCommand(x, y, speed))
 
     def home(self):
