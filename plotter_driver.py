@@ -5,13 +5,11 @@ import queue
 import re
 import wx
 
-
 WARN  = 1
 FATAL = 2
 ERROR = 3
 INFO  = 4
 TRACE = 5
-
 
 class PlotterEvent:
     def __init__(self, *args, **kw):
@@ -72,7 +70,16 @@ class GCodeMoveCommand(GCodeCommand):
             context['x'] = self.x
             context['y'] = self.y
 
+class GCodeHomeCommand(GCodeCommand):
+    def __init__(self, *args, **kw):
+        super(GCodeHomeCommand, self).__init__(*args, **kw)
 
+    def command(self):
+        return b'$h\n'
+
+    def draw(self, context):
+        context['x'] = 0
+        context['y'] = 0
 
 class GCodeMovePenCommand(GCodeCommand):
     def __init__(self, pos, *args, **kw):
@@ -83,7 +90,6 @@ class GCodeMovePenCommand(GCodeCommand):
         return b'M3 S%.2f\n' % (self.pos)
 
     def draw(self, context):
-        dc = context['dc']
         context['pen_y'] = self.pos
 
 
@@ -95,9 +101,9 @@ class GCodeWaitCommand(GCodeCommand):
     def command(self):
         return b'G4 P%.2f\n' % (self.time)
 
-class PlotterDriver:
+class GrblDriver:
     def __init__(self, port, *args, **kw):
-        super(PlotterDriver, self).__init__(*args, **kw)
+        super(GrblDriver, self).__init__(*args, **kw)
         self.line = f''
         self.port = port
         self.event_queue = queue.Queue()
@@ -110,6 +116,8 @@ class PlotterDriver:
         self.queue_head = 0
         self.settings = {}
 
+    def flush_queue(self):
+        self.gcode_queue = self.gcode_queue[ : self.queue_head]
 
     def start(self):
         self.thread = threading.Thread(target=self.read_input_thread)
@@ -205,6 +213,23 @@ class PlotterDriver:
         print(string)
 
 
+class PlotterDriver(GrblDriver):
+    def __init__(self, port, *args, **kw):
+        super(PlotterDriver, self).__init__(port, *args, **kw)\
+
+    def pen_up(self):
+        self.queue_command(GCodeMovePenCommand(400))
+        self.queue_command(GCodeWaitCommand(1))
+
+    def pen_down(self):
+        self.queue_command(GCodeMovePenCommand(400))
+        self.queue_command(GCodeWaitCommand(1))
+
+    def move(self, x, y, speed = 1000):
+        self.queue_command(GCodeMoveCommand(x, y, speed))
+
+    def home(self):
+        self.queue_command(GCodeHomeCommand())
 
 
 if __name__ == '__main__':
