@@ -3,11 +3,11 @@
 import wx
 import plotter_driver as pd
 import queue
+from serial.tools import list_ports
 
 class PlotterStatus(wx.Control):
     def __init__(self, parent, id):
         wx.Panel.__init__(self, parent, id)
-        # self.SetBackgroundColour("white")
         self.Bind(wx.EVT_PAINT, self.on_paint)
         self.connected = False
         self.SetMaxSize(wx.Size(20,20))
@@ -58,7 +58,6 @@ class PlotterGUIFrame(wx.Frame):
         self.SetBackgroundColour("Dark Grey")
 
         pnl = wx.Panel(self, -1)
-        pnl.SetBackgroundColour("Dark Grey")
 
         self.pnl_left = wx.Panel(pnl, -1)
         
@@ -101,12 +100,13 @@ class PlotterGUIFrame(wx.Frame):
         self.plotter_canvas.plotter_driver = self.plotter_driver
         self.plotter_driver.start()
 
-
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.read_plotter_queue, self.timer)
         self.timer.Start(500)
 
-        # self.Bind(wx.EVT_IDLE, self.on_idle)
+        ports = list_ports.comports()
+        for p in ports:
+            print(p.device)
 
     def on_home_button(self, event):
         self.plotter_driver.home()

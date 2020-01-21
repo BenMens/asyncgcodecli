@@ -1,4 +1,5 @@
 import serial
+from serial.tools import list_ports
 import threading
 import time
 import queue
@@ -67,8 +68,8 @@ class GCodeMoveCommand(GCodeCommand):
             path.AddLineToPoint(self.x * 10, self.y * 10)
             gc.StrokePath(path)
 
-            context['x'] = self.x
-            context['y'] = self.y
+        context['x'] = self.x
+        context['y'] = self.y
 
 class GCodeHomeCommand(GCodeCommand):
     def __init__(self, *args, **kw):
@@ -101,6 +102,67 @@ class GCodeWaitCommand(GCodeCommand):
     def command(self):
         return b'G4 P%.2f\n' % (self.time)
 
+
+class SerialReceiveThread(threading.Thread):
+    def __init__(self, grbl_driver, port, *args, **kw):
+        super(SerialReceiveThread, self).__init__(*args, **kw)
+        self.grbl_driver = grbl_driver
+        self.port = port
+        self.stop = False
+        self.serial = serial.Serial(None, baudrate=115200, timeout=1)
+        self.setDaemon(1)
+
+    def write(self, command):
+        self.serial.write(command)
+
+    def run(self):
+        while (not self.stop):
+
+            print ('Connecting ', end='', flush=True)
+
+            while (not self.serial.is_open):
+                if (self.stop): break
+                try:
+                    self.serial.port = self.port
+                    self.serial.open()
+                    self.grbl_driver.post_event(PlotterConnectEvent(True))
+                    print ('')
+                    print ('Connected')
+
+                except serial.SerialException  as e:
+                    print ('.', end='', flush=True)
+                    time.sleep(1)
+
+            self.line = f''
+
+            while(self.serial.is_open):
+                if (self.stop): break
+                try:
+                    b =  self.serial.read(size=1)
+                    if b:
+                        if b == b'\r':
+                            self.grbl_driver.process_response(self.line)
+                            self.line = f''
+                        elif b == b'\r':
+                            pass
+                        elif b == b'\n':
+                            pass
+                        else:
+                            self.line += b.decode("utf-8")
+
+                except serial.SerialException as e:
+                    self.grbl_driver.reset()
+                    self.grbl_driver.post_event(PlotterConnectEvent(False))
+                    self.serial.close()
+                    print ('Connection lost!')
+                
+        if (self.serial.is_open):
+            self.serial.close()
+
+        print('thread stopped')
+
+
+
 class GrblDriver:
     def __init__(self, port, *args, **kw):
         super(GrblDriver, self).__init__(*args, **kw)
@@ -108,6 +170,7 @@ class GrblDriver:
         self.port = port
         self.event_queue = queue.Queue()
         self.reset()
+        self.serial = SerialReceiveThread(self, port)
 
     def reset(self):
         self.connected = False
@@ -120,9 +183,19 @@ class GrblDriver:
         self.gcode_queue = self.gcode_queue[ : self.queue_head]
 
     def start(self):
-        self.thread = threading.Thread(target=self.read_input_thread)
-        self.thread.setDaemon(1)
-        self.thread.start()
+        self.serial = SerialReceiveThread(self, self.port)
+        self.serial.start()
+
+    def stop(self):
+        if self.serial != None:
+            self.serial.stop = True
+            self.serial = None
+
+    def set_port(self, port):
+        self.port = port
+        if self.serial != None:
+            stop()
+            start()
 
     def process_queue(self):
         
@@ -139,6 +212,9 @@ class GrblDriver:
             self.queue_head += 1
             self.log(TRACE, command.decode("utf-8"))
 
+    def post_event(self, event):
+        self.event_queue.put(event)
+
     def queue_command(self, command):
          self.gcode_queue.append(command)
          self.process_queue()
@@ -153,7 +229,6 @@ class GrblDriver:
         if m != None:
             self.settings[m[1]] = m[2]
 
-
         if (response == "ok"):
             head = self.gcode_queue.pop(0)
             head.processed = True
@@ -161,46 +236,6 @@ class GrblDriver:
             self.queue_head -= 1
             self.send_limit += len(head.command())
             self.process_queue()
-
-
-    def read_input_thread(self):
-        while (True):
-
-            if (not self.connected):
-                print ('Connecting ', end='', flush=True)
-
-            while (not self.connected):
-                try:
-                    self.serial = serial.Serial(self.port, baudrate=115200)
-                    self.connected = True
-                    self.event_queue.put(PlotterConnectEvent(True))
-                    print ('')
-                    print ('Connected')
-
-                except Exception as e:
-                    print ('.', end='', flush=True)
-                    time.sleep(1)
-
-            self.line = f''
-
-            while(self.connected):
-                try:
-                    b =  self.serial.read(size=1)
-                    if b:
-                        if b == b'\r':
-                            self.process_response(self.line)
-                            self.line = f''
-                        elif b == b'\r':
-                            pass
-                        elif b == b'\n':
-                            pass
-                        else:
-                            self.line += b.decode("utf-8")
-
-                except serial.SerialException as e:
-                    self.reset()
-                    self.event_queue.put(PlotterConnectEvent(False))
-                    print ('Connection lost!')
 
     def get_initial_context(self):
         return {
@@ -234,19 +269,30 @@ class PlotterDriver(GrblDriver):
 
 if __name__ == '__main__':
 
+    # print (serial.__file__)
+
+    # while (True):
+    #     ports = list_ports.comports()
+    #     for p in ports:
+    #         print(p.device)
+    #     time.sleep(2)
+
     driver = PlotterDriver("/dev/cu.usbmodem14101")
     driver.start()
+    time.sleep(20)
+    driver.stop()
+    time.sleep(10)
 
-    while (True):
-        e = driver.event_queue.get()
-        if (isinstance(e, CommandProcessedEvent)):
-            if isinstance(e.command, GCodeSettingsCommand):
-                print(driver.settings)
-                for i in range(0, 100, 1):
-                    driver.queue_command(GCodeMoveCommand(0+i, 0, 50000))
-                    driver.queue_command(GCodeMoveCommand(100, 0+i, 50000))
-                    driver.queue_command(GCodeMoveCommand(100-i,  100, 50000))
-                    driver.queue_command(GCodeMoveCommand(0,  100-i, 50000))
+    # while (True):
+    #     e = driver.event_queue.get()
+    #     if (isinstance(e, CommandProcessedEvent)):
+    #         if isinstance(e.command, GCodeSettingsCommand):
+    #             print(driver.settings)
+    #             for i in range(0, 100, 1):
+    #                 driver.queue_command(GCodeMoveCommand(0+i, 0, 50000))
+    #                 driver.queue_command(GCodeMoveCommand(100, 0+i, 50000))
+    #                 driver.queue_command(GCodeMoveCommand(100-i,  100, 50000))
+    #                 driver.queue_command(GCodeMoveCommand(0,  100-i, 50000))
 
 
     
