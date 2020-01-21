@@ -194,8 +194,9 @@ class GrblDriver:
     def set_port(self, port):
         self.port = port
         if self.serial != None:
-            stop()
-            start()
+            self.stop()
+            self.post_event(PlotterConnectEvent(False))
+            self.start()
 
     def process_queue(self):
         

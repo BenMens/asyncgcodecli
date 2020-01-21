@@ -19,9 +19,9 @@ class PlotterStatus(wx.Control):
         dc.SetUserScale(size.width / 1000, size.height / 1000)
         dc.SetPen(wx.Pen("black"))
         if (self.connected):
-            dc.SetBrush(wx.Brush("green", wx.SOLID))
+            dc.SetBrush(wx.Brush("green"))
         else:
-            dc.SetBrush(wx.Brush("red", wx.SOLID))
+            dc.SetBrush(wx.Brush("red"))
 
         dc.DrawCircle(500, 500, 400)
         del dc
@@ -57,11 +57,19 @@ class PlotterGUIFrame(wx.Frame):
 
         self.SetBackgroundColour("Dark Grey")
 
-        pnl = wx.Panel(self, -1)
+        self.pnl_top = wx.Panel(self, -1)
 
-        self.pnl_left = wx.Panel(pnl, -1)
+        self.plotter_status = PlotterStatus(self.pnl_top, -1)
+
+        self.serial_selection = wx.Choice(self.pnl_top, -1)
+        self.Bind(wx.EVT_CHOICE, self.on_serial_selection, self.serial_selection)
+
+        self.serial_selection_refresh = wx.Button(self.pnl_top, -1, label="Refresh")
+        self.Bind(wx.EVT_BUTTON, self.on_serial_selection_refresh_button, self.serial_selection_refresh)
+
+        self.pnl = wx.Panel(self, -1)
         
-        self.plotter_status = PlotterStatus(self.pnl_left, -1)
+        self.pnl_left = wx.Panel(self.pnl, -1)
 
         self.home_button = wx.Button(self.pnl_left, -1, label="Home")
         self.Bind(wx.EVT_BUTTON, self.on_home_button, self.home_button)
@@ -78,25 +86,36 @@ class PlotterGUIFrame(wx.Frame):
         self.draw_button = wx.Button(self.pnl_left, -1, label="Draw")
         self.Bind(wx.EVT_BUTTON, self.on_draw_button, self.draw_button)
 
-        self.plotter_canvas = PlotterCanvas(pnl, -1)
+        self.plotter_canvas = PlotterCanvas(self.pnl, -1)
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(self.pnl_left, wx.SizerFlags().Border(wx.LEFT | wx.TOP, 20).Align(wx.ALIGN_TOP|wx.ALIGN_LEFT))
+        sizer.Add(self.pnl_left,       wx.SizerFlags().Border(wx.LEFT | wx.TOP, 20).Align(wx.ALIGN_TOP|wx.ALIGN_LEFT))
         sizer.Add(self.plotter_canvas, wx.SizerFlags().Shaped().Border(wx.ALL, 20).Proportion(1).Align(wx.ALIGN_TOP|wx.ALIGN_LEFT))
-        pnl.SetSizer(sizer)
+        self.pnl.SetSizer(sizer)
 
         sizer1 = wx.BoxSizer(wx.VERTICAL)
-        sizer1.Add(self.plotter_status,  wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM, 20))
         sizer1.Add(self.home_button,     wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM, 5).Expand())
         sizer1.Add(self.pen_up_button,   wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM, 5).Expand())
         sizer1.Add(self.pen_down_button, wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM, 5).Expand())
         sizer1.Add(self.flush_button,    wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM, 5).Expand())
-        sizer1.Add(self.draw_button,    wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM | wx.TOP, 5).Expand())
+        sizer1.Add(self.draw_button,     wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM | wx.TOP, 5).Expand())
         self.pnl_left.SetSizer(sizer1)
+
+        top_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        top_sizer.Add(self.serial_selection,         wx.SizerFlags().Proportion(1).Border(wx.RIGHT, 5).Expand())
+        top_sizer.Add(self.serial_selection_refresh, wx.SizerFlags().Border(wx.RIGHT, 5))
+        top_sizer.Add(self.plotter_status,           wx.SizerFlags().Border(wx.RIGHT, 5))
+        self.pnl_top.SetSizer(top_sizer)
+
+        frame_sizer = wx.BoxSizer(wx.VERTICAL)
+        frame_sizer.Add(self.pnl_top, wx.SizerFlags().Border(wx.LEFT, 20))
+        frame_sizer.Add(self.pnl,     wx.SizerFlags().Expand())
+        self.SetSizer(frame_sizer)        
 
         self.eventCount = 0
 
-        self.plotter_driver = pd.PlotterDriver("/dev/cu.usbmodem14101")
+        # self.plotter_driver = pd.PlotterDriver("/dev/cu.usbmodem14101")
+        self.plotter_driver = pd.PlotterDriver(None)
         self.plotter_canvas.plotter_driver = self.plotter_driver
         self.plotter_driver.start()
 
@@ -104,9 +123,17 @@ class PlotterGUIFrame(wx.Frame):
         self.Bind(wx.EVT_TIMER, self.read_plotter_queue, self.timer)
         self.timer.Start(500)
 
+        self.on_serial_selection_refresh_button(None)
+
+    def on_serial_selection(self, event):
+        self.plotter_driver.set_port(event.String)
+
+    def on_serial_selection_refresh_button(self, event):
+        self.serial_selection.Clear()
         ports = list_ports.comports()
         for p in ports:
-            print(p.device)
+            self.serial_selection.Append(p.device)
+        self.serial_selection.SetSelection(wx.NOT_FOUND)
 
     def on_home_button(self, event):
         self.plotter_driver.home()
