@@ -32,25 +32,25 @@ class PlotterCanvas(wx.Control):
         wx.Panel.__init__(self, parent, id)
         self.SetBackgroundColour("white")
         self.Bind(wx.EVT_PAINT, self.on_paint)
-        self.commands = []
+        self.plotter_driver = None
 
     def on_paint(self, evt):
-        context = self.plotter_driver.get_initial_context()
-        dc = wx.PaintDC(self)
-        gc = wx.GraphicsContext.Create(dc)
-        size = self.GetSize()
-        dc.SetUserScale(size.width / 1000, size.height / 1000)
+        if self.plotter_driver != None:
+            context = self.plotter_driver.get_initial_context()
+            dc = wx.PaintDC(self)
+            gc = wx.GraphicsContext.Create(dc)
+            size = self.GetSize()
+            dc.SetUserScale(size.width / 1000, size.height / 1000)
 
-        context['gc'] = gc
-        for command in self.commands:
-            command.draw(context)
+            context['gc'] = gc
+            for command in self.plotter_driver.processed_commands:
+                command.draw(context)
 
-        context['gc'] = None
+            context['gc'] = None
 
-        del dc
-        del gc
+            del dc
+            del gc
     
-
 class PlotterGUIFrame(wx.Frame):
     def __init__(self, *args, **kw):
         super(PlotterGUIFrame, self).__init__(*args, **kw)
@@ -88,8 +88,19 @@ class PlotterGUIFrame(wx.Frame):
 
         self.plotter_canvas = PlotterCanvas(self.pnl, -1)
 
+        frame_sizer = wx.BoxSizer(wx.VERTICAL)
+        frame_sizer.Add(self.pnl_top, wx.SizerFlags().Border(wx.LEFT| wx.TOP, 10))
+        frame_sizer.Add(self.pnl,     wx.SizerFlags().Border(wx.LEFT, 10).Proportion(1).Expand())
+        self.SetSizer(frame_sizer)        
+
+        top_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        top_sizer.Add(self.serial_selection,         wx.SizerFlags().Proportion(1).Border(wx.RIGHT, 5).Expand())
+        top_sizer.Add(self.serial_selection_refresh, wx.SizerFlags().Border(wx.RIGHT, 5))
+        top_sizer.Add(self.plotter_status,           wx.SizerFlags().Border(wx.RIGHT, 5))
+        self.pnl_top.SetSizer(top_sizer)
+
         sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(self.pnl_left,       wx.SizerFlags().Border(wx.LEFT | wx.TOP, 20).Align(wx.ALIGN_TOP|wx.ALIGN_LEFT))
+        sizer.Add(self.pnl_left,       wx.SizerFlags().Border(wx.TOP, 20).Align(wx.ALIGN_TOP|wx.ALIGN_LEFT))
         sizer.Add(self.plotter_canvas, wx.SizerFlags().Shaped().Border(wx.ALL, 20).Proportion(1).Align(wx.ALIGN_TOP|wx.ALIGN_LEFT))
         self.pnl.SetSizer(sizer)
 
@@ -101,23 +112,7 @@ class PlotterGUIFrame(wx.Frame):
         sizer1.Add(self.draw_button,     wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM | wx.TOP, 5).Expand())
         self.pnl_left.SetSizer(sizer1)
 
-        top_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        top_sizer.Add(self.serial_selection,         wx.SizerFlags().Proportion(1).Border(wx.RIGHT, 5).Expand())
-        top_sizer.Add(self.serial_selection_refresh, wx.SizerFlags().Border(wx.RIGHT, 5))
-        top_sizer.Add(self.plotter_status,           wx.SizerFlags().Border(wx.RIGHT, 5))
-        self.pnl_top.SetSizer(top_sizer)
-
-        frame_sizer = wx.BoxSizer(wx.VERTICAL)
-        frame_sizer.Add(self.pnl_top, wx.SizerFlags().Border(wx.LEFT, 20))
-        frame_sizer.Add(self.pnl,     wx.SizerFlags().Expand())
-        self.SetSizer(frame_sizer)        
-
         self.eventCount = 0
-
-        # self.plotter_driver = pd.PlotterDriver("/dev/cu.usbmodem14101")
-        self.plotter_driver = pd.PlotterDriver(None)
-        self.plotter_canvas.plotter_driver = self.plotter_driver
-        self.plotter_driver.start()
 
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.read_plotter_queue, self.timer)
@@ -125,8 +120,17 @@ class PlotterGUIFrame(wx.Frame):
 
         self.on_serial_selection_refresh_button(None)
 
+        self.plotter_driver = None
+
     def on_serial_selection(self, event):
-        self.plotter_driver.set_port(event.String)
+        if self.plotter_driver != None: 
+            self.plotter_driver.stop()
+
+        self.plotter_status.connected = False
+        self.plotter_status.Refresh()
+        self.plotter_driver = pd.PlotterDriver(event.String)
+        self.plotter_canvas.plotter_driver = self.plotter_driver
+        self.plotter_driver.start()
 
     def on_serial_selection_refresh_button(self, event):
         self.serial_selection.Clear()
@@ -152,7 +156,7 @@ class PlotterGUIFrame(wx.Frame):
         self.plotter_driver.pen_up()
         self.plotter_driver.move(10, 10)
         self.plotter_driver.pen_down()
-        for i in range(0, 80, 1):
+        for i in range(0, 82, 2):
             self.plotter_driver.move(10+i, 10)
             self.plotter_driver.move(90,   10+i)
             self.plotter_driver.move(90-i, 90)
@@ -160,23 +164,19 @@ class PlotterGUIFrame(wx.Frame):
         self.plotter_driver.pen_up()
         self.plotter_driver.move(0, 0)
 
-    def on_idle(self, evt):
-        self.eventCount += 1
-        print ('idle ' + str(self.eventCount))
-
     def read_plotter_queue(self, evt):
         while (True):
+            if self.plotter_driver == None: break
             try:
                 e = self.plotter_driver.event_queue.get(block=False)
                 if (isinstance(e, pd.PlotterConnectEvent)):
                     self.plotter_status.connected = e.connected
                     self.plotter_status.Refresh()
                     if self.plotter_status.connected:
-                        self.plotter_canvas.commands.clear()
+                        self.plotter_canvas.Refresh()
 
 
                 if (isinstance(e, pd.CommandProcessedEvent)):
-                    self.plotter_canvas.commands.append(e.command)
                     self.plotter_canvas.Refresh()
 
                     if isinstance(e.command, pd.GCodeSettingsCommand):

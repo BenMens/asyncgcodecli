@@ -169,8 +169,10 @@ class GrblDriver:
         self.line = f''
         self.port = port
         self.event_queue = queue.Queue()
+        self.processed_commands = []
         self.reset()
         self.serial = SerialReceiveThread(self, port)
+
 
     def reset(self):
         self.connected = False
@@ -178,6 +180,7 @@ class GrblDriver:
         self.send_limit = 100
         self.queue_head = 0
         self.settings = {}
+        self.processed_commands.clear()
 
     def flush_queue(self):
         self.gcode_queue = self.gcode_queue[ : self.queue_head]
@@ -191,15 +194,7 @@ class GrblDriver:
             self.serial.stop = True
             self.serial = None
 
-    def set_port(self, port):
-        self.port = port
-        if self.serial != None:
-            self.stop()
-            self.post_event(PlotterConnectEvent(False))
-            self.start()
-
-    def process_queue(self):
-        
+    def process_queue(self):        
         while (self.queue_head < len(self.gcode_queue)):
             head = self.gcode_queue[self.queue_head]
 
@@ -233,6 +228,7 @@ class GrblDriver:
         if (response == "ok"):
             head = self.gcode_queue.pop(0)
             head.processed = True
+            self.processed_commands.append(head)
             self.event_queue.put(CommandProcessedEvent(head))
             self.queue_head -= 1
             self.send_limit += len(head.command())
@@ -269,6 +265,7 @@ class PlotterDriver(GrblDriver):
 
 
 if __name__ == '__main__':
+    pass
 
     # print (serial.__file__)
 
@@ -277,12 +274,6 @@ if __name__ == '__main__':
     #     for p in ports:
     #         print(p.device)
     #     time.sleep(2)
-
-    driver = PlotterDriver("/dev/cu.usbmodem14101")
-    driver.start()
-    time.sleep(20)
-    driver.stop()
-    time.sleep(10)
 
     # while (True):
     #     e = driver.event_queue.get()
