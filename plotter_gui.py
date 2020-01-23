@@ -1,9 +1,10 @@
-#!/usr/bin/env python
-
 import wx
 import plotter_driver as pd
 import queue
 from serial.tools import list_ports
+from wxasync import AsyncBind, WxAsyncApp, StartCoroutine
+import asyncio
+from asyncio.events import get_event_loop
 
 class PlotterStatus(wx.Control):
     def __init__(self, parent, id):
@@ -25,7 +26,6 @@ class PlotterStatus(wx.Control):
 
         dc.DrawCircle(500, 500, 400)
         del dc
-
 
 class PlotterCanvas(wx.Control):
     def __init__(self, parent, id):
@@ -152,15 +152,22 @@ class PlotterGUIFrame(wx.Frame):
         self.plotter_driver.flush_queue()
         
     def on_draw_button(self, event):
+        asyncio.create_task(self.perform_draw())
+
+    async def perform_draw(self):
         self.plotter_driver.home()
         self.plotter_driver.pen_up()
         self.plotter_driver.move(10, 10)
         self.plotter_driver.pen_down()
         for i in range(0, 82, 2):
             self.plotter_driver.move(10+i, 10)
+            # await self.plotter_driver.wait_for_idle()
             self.plotter_driver.move(90,   10+i)
+            # await self.plotter_driver.wait_for_idle()
             self.plotter_driver.move(90-i, 90)
+            # await self.plotter_driver.wait_for_idle()
             self.plotter_driver.move(10,   90-i)
+            # await self.plotter_driver.wait_for_idle()
         self.plotter_driver.pen_up()
         self.plotter_driver.move(0, 0)
 
@@ -187,7 +194,9 @@ class PlotterGUIFrame(wx.Frame):
             
 
 if __name__ == '__main__':
-    app = wx.App()
+    app = WxAsyncApp()
     frm = PlotterGUIFrame(None, title='Plotter')
     frm.Show()
-    app.MainLoop()
+    app.SetTopWindow(frm)
+    loop = get_event_loop()
+    loop.run_until_complete(app.MainLoop())

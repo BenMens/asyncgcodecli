@@ -5,6 +5,7 @@ import time
 import queue
 import re
 import wx
+import asyncio
 
 WARN  = 1
 FATAL = 2
@@ -30,7 +31,8 @@ class CommandProcessedEvent(PlotterEvent):
 class GCodeCommand:
     def __init__(self, *args, **kw):
         super(GCodeCommand, self).__init__(*args, **kw)
-        self.processed = False
+        self.send = False
+        self.confirmed = False
 
     def command(self):
         return b''
@@ -43,7 +45,7 @@ class GCodeSettingsCommand(GCodeCommand):
         super(GCodeSettingsCommand, self).__init__(*args, **kw)
 
     def command(self):
-        return b'$$\n'
+        return b'$$\r'
 
 
 class GCodeMoveCommand(GCodeCommand):
@@ -54,7 +56,7 @@ class GCodeMoveCommand(GCodeCommand):
         self.speed = speed
 
     def command(self):
-        return b'G1 X%.2f Y%.2f F%.2f\n' % (self.x, self.y, self.speed)
+        return b'G1 X%.2f Y%.2f F%.2f\r' % (self.x, self.y, self.speed)
 
     def draw(self, context):
         pen_y = context['pen_y']
@@ -76,7 +78,7 @@ class GCodeHomeCommand(GCodeCommand):
         super(GCodeHomeCommand, self).__init__(*args, **kw)
 
     def command(self):
-        return b'$h\n'
+        return b'$h\r'
 
     def draw(self, context):
         context['x'] = 0
@@ -88,7 +90,7 @@ class GCodeMovePenCommand(GCodeCommand):
         self.pos = pos
 
     def command(self):
-        return b'M3 S%.2f\n' % (self.pos)
+        return b'M3 S%.2f\r' % (self.pos)
 
     def draw(self, context):
         context['pen_y'] = self.pos
@@ -100,8 +102,14 @@ class GCodeWaitCommand(GCodeCommand):
         self.time = time
 
     def command(self):
-        return b'G4 P%.2f\n' % (self.time)
+        return b'G4 P%.2f\r' % (self.time)
 
+class GCodeStatusRequest(GCodeCommand):
+    def __init__(self, *args, **kw):
+        super(GCodeStatusRequest, self).__init__(*args, **kw)
+
+    def command(self):
+        return b'?\r'
 
 class SerialReceiveThread(threading.Thread):
     def __init__(self, grbl_driver, port, *args, **kw):
@@ -172,7 +180,7 @@ class GrblDriver:
         self.processed_commands = []
         self.reset()
         self.serial = SerialReceiveThread(self, port)
-
+        self.status = 'Unknown'
 
     def reset(self):
         self.connected = False
@@ -196,7 +204,8 @@ class GrblDriver:
 
     def process_queue(self):        
         while (self.queue_head < len(self.gcode_queue)):
-            head = self.gcode_queue[self.queue_head]
+            head = self.gcode_queue[0]
+            if head.send: break
 
             command = head.command()
             command_len = len(command)
@@ -205,7 +214,7 @@ class GrblDriver:
 
             self.serial.write(command)
             self.send_limit -= command_len
-            self.queue_head += 1
+            head.send = True
             self.log(TRACE, command.decode("utf-8"))
 
     def post_event(self, event):
@@ -214,6 +223,17 @@ class GrblDriver:
     def queue_command(self, command):
          self.gcode_queue.append(command)
          self.process_queue()
+
+    def process_status(self, status):
+        components = status.split('|')
+        self.status = components[0]
+
+    async def wait_for_idle(self):
+        self.status = 'Unknown'
+        while True:
+            if self.status == 'Idle': break
+            self.queue_command(GCodeStatusRequest())
+            await asyncio.sleep(0.1)
 
     def process_response(self, response):
         self.log(TRACE, response)
@@ -225,12 +245,25 @@ class GrblDriver:
         if m != None:
             self.settings[m[1]] = m[2]
 
-        if (response == "ok"):
+        m= re.compile(r'\<?(.*)\>').match(response)
+        if m != None:
+            self.process_status(m[1])
+
+        m= re.compile(r'error:(.*)').match(response)
+        if m != None:
+            # ToDo set error
             head = self.gcode_queue.pop(0)
-            head.processed = True
+            head.confirmed = True
             self.processed_commands.append(head)
             self.event_queue.put(CommandProcessedEvent(head))
-            self.queue_head -= 1
+            self.send_limit += len(head.command())
+            self.process_queue()            
+
+        if (response == "ok"):
+            head = self.gcode_queue.pop(0)
+            head.confirmed = True
+            self.processed_commands.append(head)
+            self.event_queue.put(CommandProcessedEvent(head))
             self.send_limit += len(head.command())
             self.process_queue()
 
