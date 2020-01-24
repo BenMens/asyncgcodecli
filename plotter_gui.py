@@ -43,8 +43,9 @@ class PlotterCanvas(wx.Control):
             dc.SetUserScale(size.width / 1000, size.height / 1000)
 
             context['gc'] = gc
-            for command in self.plotter_driver.processed_commands:
-                command.draw(context)
+            for command in self.plotter_driver.gcode_queue:
+                if (command.confirmed):
+                    command.draw(context)
 
             context['gc'] = None
 
@@ -53,7 +54,12 @@ class PlotterCanvas(wx.Control):
     
 class PlotterGUIFrame(wx.Frame):
     def __init__(self, *args, **kw):
-        super(PlotterGUIFrame, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
+
+        self.plotter_event_queue = asyncio.Queue()
+
+        self.SetSize(wx.Size(400, 350))
+        self.SetMinSize(wx.Size(400, 350))
 
         self.SetBackgroundColour("Dark Grey")
 
@@ -114,13 +120,11 @@ class PlotterGUIFrame(wx.Frame):
 
         self.eventCount = 0
 
-        self.timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self.read_plotter_queue, self.timer)
-        self.timer.Start(500)
-
         self.on_serial_selection_refresh_button(None)
 
         self.plotter_driver = None
+
+        wx.App.Get().loop.create_task(self.read_plotter_queue())
 
     def on_serial_selection(self, event):
         if self.plotter_driver != None: 
@@ -128,7 +132,7 @@ class PlotterGUIFrame(wx.Frame):
 
         self.plotter_status.connected = False
         self.plotter_status.Refresh()
-        self.plotter_driver = pd.PlotterDriver(event.String)
+        self.plotter_driver = pd.Plotter(event.String, self.plotter_event_queue)
         self.plotter_canvas.plotter_driver = self.plotter_driver
         self.plotter_driver.start()
 
@@ -161,7 +165,7 @@ class PlotterGUIFrame(wx.Frame):
         self.plotter_driver.pen_down()
         for i in range(0, 82, 2):
             self.plotter_driver.move(10+i, 10)
-            # await self.plotter_driver.wait_for_idle()
+            await self.plotter_driver.wait_for_idle()
             self.plotter_driver.move(90,   10+i)
             # await self.plotter_driver.wait_for_idle()
             self.plotter_driver.move(90-i, 90)
@@ -171,32 +175,23 @@ class PlotterGUIFrame(wx.Frame):
         self.plotter_driver.pen_up()
         self.plotter_driver.move(0, 0)
 
-    def read_plotter_queue(self, evt):
-        while (True):
-            if self.plotter_driver == None: break
-            try:
-                e = self.plotter_driver.event_queue.get(block=False)
-                if (isinstance(e, pd.PlotterConnectEvent)):
-                    self.plotter_status.connected = e.connected
-                    self.plotter_status.Refresh()
-                    if self.plotter_status.connected:
-                        self.plotter_canvas.Refresh()
+    async def read_plotter_queue(self):
+        while True:
+            event = await self.plotter_event_queue.get()
 
-
-                if (isinstance(e, pd.CommandProcessedEvent)):
+            if (isinstance(event, pd.PlotterConnectEvent)):
+                self.plotter_status.connected = event.connected
+                self.plotter_status.Refresh()
+                if self.plotter_status.connected:
                     self.plotter_canvas.Refresh()
 
-                    if isinstance(e.command, pd.GCodeSettingsCommand):
-                        print(self.plotter_driver.settings)
+            if (isinstance(event, pd.CommandProcessedEvent)):
+                self.plotter_canvas.Refresh()
 
-            except queue.Empty:
-                break
-            
 
 if __name__ == '__main__':
     app = WxAsyncApp()
     frm = PlotterGUIFrame(None, title='Plotter')
     frm.Show()
     app.SetTopWindow(frm)
-    loop = get_event_loop()
-    loop.run_until_complete(app.MainLoop())
+    app.loop.run_until_complete(app.MainLoop())
