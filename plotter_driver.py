@@ -6,6 +6,8 @@ import queue
 import re
 import wx
 import asyncio
+import math
+from math import pi
 
 WARN  = 1
 FATAL = 2
@@ -33,10 +35,12 @@ class ResponseReveivedEvent(PlotterEvent):
         self.response = response
 
 class GCodeCommand:
-    def __init__(self, *args, **kw):
+    def __init__(self, expect_ok = True, *args, **kw):
         super().__init__(*args, **kw)
         self.send = False
         self.confirmed = False
+        self.confirmed_future = asyncio.Future()
+        self.expect_ok = expect_ok
 
     def command(self):
         return b''
@@ -162,13 +166,10 @@ class SerialReceiveThread(threading.Thread):
                 try:
                     b =  self.serial.read(size=1)
                     if b:
-                        if b == b'\r':
-                            self.post_event(ResponseReveivedEvent(response))
-                            response = f''
-                        elif b == b'\r':
-                            pass
-                        elif b == b'\n':
-                            pass
+                        if b == b'\n' or b == b'\r':
+                            if (len(b) > 0):
+                                self.post_event(ResponseReveivedEvent(response))
+                                response = f''
                         else:
                             response += b.decode("utf-8")
 
@@ -182,11 +183,6 @@ class SerialReceiveThread(threading.Thread):
 
         print('thread stopped')
 
-    def __del__(self):
-        self.stop = True
-
-        print('SerialReceiveThread __del__ called')
-
 
 
 class GenericDriver:
@@ -198,12 +194,14 @@ class GenericDriver:
         self.serial = None
         self.async_event_queue = async_event_queue
         self.process_serial_events_task = None
+        self.queue_empty_futures = []
+        self.ready_future = asyncio.Future()
 
     def reset(self):
         self.connected = False
         self.processed_tail = 0
         self.gcode_queue = []
-        self.send_limit = 100
+        self.send_limit = 500
         self.settings = {}
 
     def flush_queue(self):
@@ -221,6 +219,8 @@ class GenericDriver:
                     event = self.serial.event_queue.get_nowait()
                     if isinstance(event, ResponseReveivedEvent):
                         self.process_response(event.response)
+
+                    self.check_queue_empty()                        
 
                     self.forward_event(event)
 
@@ -260,22 +260,49 @@ class GenericDriver:
             head.send = True
             self.log(TRACE, command.decode("utf-8"))
 
+            if not head.expect_ok:
+                self.confirm_command()
+
+    def confirm_command(self):
+        head = self.gcode_queue[self.processed_tail]
+        head.confirmed = True
+        head.confirmed_future.set_result(True)
+        self.processed_tail += 1
+        self.forward_event(CommandProcessedEvent(head))
+        self.send_limit += len(head.command())
+        self.process_queue()       
+
     def process_response(self, response):
         self.log(TRACE, response)
 
-        if (response == "ok"):
-            head = self.gcode_queue[self.processed_tail]
-            head.confirmed = True
-            self.processed_tail += 1
-            self.forward_event(CommandProcessedEvent(head))
-            self.send_limit += len(head.command())
-            self.process_queue()       
+        m= re.compile(r'\<?(.*)\>').match(response)
+        if m != None:
+            self.process_status(m[1])
 
+        if (response == "ok"):
+            self.confirm_command()
 
     def queue_command(self, command):
          self.gcode_queue.append(command)
          self.process_queue()
          return command
+
+    def check_queue_empty(self):
+        if self.processed_tail == len(self.gcode_queue):
+            for f in self.queue_empty_futures:
+                f.set_result(True)
+
+            self.queue_empty_futures.clear()
+
+
+    def queue_empty(self):
+        future = asyncio.Future()
+        self.queue_empty_futures.append(future)
+        self.check_queue_empty()
+        return future
+
+    def ready(self):
+        return self.ready_future
 
     def get_initial_context(self):
         return {
@@ -287,9 +314,15 @@ class GenericDriver:
     def log(self, level, string):
         print(string)
 
-    def __del__(self):
-        print('GenericDriver __del__ called')
+    def queue_get_status(self):
+        self.queue_command(GCodeGenericCommand('?'))
 
+    async def wait_for_idle(self):
+        self.status = 'Unknown'
+        while True:
+            if self.status == 'Idle': break
+            self.queue_get_status()
+            await asyncio.sleep(0.1)
 
 
 class GrblDriver(GenericDriver):
@@ -300,64 +333,45 @@ class GrblDriver(GenericDriver):
         super().reset()
         self.status = 'Unknown'
 
-    def process_status(self, status):
-        components = status.split('|')
-        self.status = components[0]
-
-    async def wait_for_idle(self):
-        self.status = 'Unknown'
-        while True:
-            if self.status == 'Idle': break
-            self.queue_command(GCodeGenericCommand('?'))
-            await asyncio.sleep(0.1)
-
     def process_response(self, response):
         super().process_response(response)
 
         if response == f"Grbl 1.1h ['$' for help]":
-            self.queue_command(GCodeGenericCommand('$$'))
+            settings_command = GCodeGenericCommand('$$')
+            self.queue_command(settings_command)
+
+            async def wait_for_settings(settings_command):
+                await settings_command.confirmed_future
+
+                self.ready_future.set_result(True)
+
+            asyncio.create_task(wait_for_settings(settings_command))            
 
         m = re.compile(r'\$([0-9]+)=([0-9]+\.?[0-9]*).*').match(response)
         if m != None:
             self.settings[m[1]] = m[2]
 
-        m= re.compile(r'\<?(.*)\>').match(response)
-        if m != None:
-            self.process_status(m[1])
-
         m= re.compile(r'error:(.*)').match(response)
         if m != None:
             # ToDo set error
-            head = self.gcode_queue[self.processed_tail]
-            head.confirmed = True
-            self.processed_tail += 1
-            self.forward_event(CommandProcessedEvent(head))
-            self.send_limit += len(head.command())
-            self.process_queue()           
+            self.confirm_command()
+
+    def process_status(self, status):
+        components = status.split('|')
+        self.status = components[0]
+
 
 class MarlinDriver(GenericDriver):
     def __init__(self, port, *args, **kw):
-        super().__init__(port, *args, **kw)
+        super().__init__(port, advanced_flow_control = True, *args, **kw)
 
-    async def wait_for_idle(self):
-        command = GCodeGenericCommand('M400')
-        self.queue_command(command)
-        while True:
-            if command.confirmed == True: break
-            await asyncio.sleep(0.1)
+    def process_status(self, status):
+        components = status.split(',')
+        self.status = components[0]
 
-    def process_response(self, response):
-        super().process_response(response)
+    def queue_get_status(self):
+        self.queue_command(GCodeGenericCommand('?', expect_ok=False))
 
-        # m= re.compile(r'error:(.*)').match(response)
-        # if m != None:
-        #     # ToDo set error
-        #     head = self.gcode_queue[self.processed_tail]
-        #     head.confirmed = True
-        #     self.processed_tail += 1
-        #     self.post_event(CommandProcessedEvent(head))
-        #     self.send_limit += len(head.command())
-        #     self.process_queue()     
 
 class Plotter(GrblDriver):
     def __init__(self, port, *args, **kw):
@@ -378,9 +392,105 @@ class Plotter(GrblDriver):
         self.queue_command(GCodeHomeCommand())
 
 
-class uArm(MarlinDriver):
+class UArm(MarlinDriver):
     def __init__(self, port, *args, **kw):
         super().__init__(port, *args, **kw)
 
-    def move(self, x, y, z, speed = 10000):
+    def process_response(self, response):
+        super().process_response(response)
+
+        if response == f"@6 N0 V1":
+            self.switch = True
+
+        if response == f"@6 N0 V0":
+            self.switch = False
+
+        if response == f"@1":
+            settings_command = GCodeGenericCommand('$$')
+            self.queue_command(settings_command)
+
+            async def wait_for_settings(settings_command):
+                await settings_command.confirmed_future
+
+                self.ready_future.set_result(True)
+
+            asyncio.create_task(wait_for_settings(settings_command))         
+
+    def move(self, x, y, z, speed = 100):
         self.queue_command(GCodeMoveCommand(x = x, y = y, z = z, speed = speed))
+
+    def set_wrist(self, angle):
+        self.queue_command(GCodeGenericCommand('G2202 N3 V%.2f F1' % angle))
+
+    def set_mode(self, mode):
+        self.queue_command(GCodeGenericCommand('M2400 S{}'.format(mode)))
+
+
+    def set_pump(self, on):
+        if on:
+            self.queue_command(GCodeGenericCommand('M2231 V1'))
+        else:
+            self.queue_command(GCodeGenericCommand('M2231 V0'))
+
+
+if __name__ == '__main__':
+
+    async def main():
+        driver = Plotter('/dev/cu.usbmodem14201')
+        driver.start()
+        await driver.ready()
+        await perform_draw(driver)
+        await driver.queue_empty()
+        driver.stop()
+        await asyncio.sleep(2)
+
+    async def perform_draw(driver):
+        driver.home()
+        driver.pen_up()
+        driver.move(10, 10)
+        driver.pen_down()
+        for i in range(0, 82, 2):
+            driver.move(10+i, 10)
+            # await driver.wait_for_idle()
+            driver.move(90,   10+i)
+            # await driver.wait_for_idle()
+            driver.move(90-i, 90)
+            # await driver.wait_for_idle()
+            driver.move(10,   90-i)
+            # await driver.wait_for_idle()
+        driver.pen_up()
+        driver.move(0, 0)
+
+    async def do_arm():
+        driver = UArm('/dev/cu.usbmodem14101')
+        driver.start()
+        await driver.ready()
+
+        driver.set_mode(2)
+
+        driver.move(150, 0, 10, 10)
+        driver.move(150, 0, 150, 10)
+
+        for i in range(1, 5):
+            driver.move(150, -100, 150, 200)
+            driver.move(150, 100, 150, 200)
+
+
+        await driver.queue_empty()
+        # await driver.wait_for_idle()
+
+        driver.set_pump(True)
+        for x in range(1, 3):
+            await asyncio.sleep(1)
+            driver.set_wrist(120)
+            await asyncio.sleep(1)
+            driver.set_wrist(60)
+        driver.set_pump(False)
+
+        await driver.queue_empty()
+        driver.stop()
+        await asyncio.sleep(2)
+
+
+
+    asyncio.run(do_arm())
