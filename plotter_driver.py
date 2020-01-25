@@ -27,6 +27,11 @@ class CommandProcessedEvent(PlotterEvent):
         super().__init__(*args, **kw)
         self.command = command
 
+class ResponseReveivedEvent(PlotterEvent):
+    def __init__(self, response, *args, **kw):
+        super().__init__(*args, **kw)
+        self.response = response
+
 class GCodeCommand:
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
@@ -118,16 +123,19 @@ class GCodeWaitCommand(GCodeCommand):
 
 
 class SerialReceiveThread(threading.Thread):
-    def __init__(self, grbl_driver, port, *args, **kw):
+    def __init__(self, port, *args, **kw):
         super().__init__(*args, **kw)
-        self.grbl_driver = grbl_driver
+        self.event_queue = queue.Queue()
         self.port = port
         self.stop = False
         self.serial = serial.Serial(None, baudrate=115200, timeout=1)
         self.setDaemon(1)
 
-    def write(self, command):
-        self.serial.write(command)
+    def post_event(self, event):
+        self.event_queue.put(event)
+
+    def write(self, gcode):
+        self.serial.write(gcode)
 
     def run(self):
         while (not self.stop):
@@ -139,7 +147,7 @@ class SerialReceiveThread(threading.Thread):
                 try:
                     self.serial.port = self.port
                     self.serial.open()
-                    self.grbl_driver.post_event(PlotterConnectEvent(True))
+                    self.post_event(PlotterConnectEvent(True))
                     print ('')
                     print ('Connected')
 
@@ -147,7 +155,7 @@ class SerialReceiveThread(threading.Thread):
                     print ('.', end='', flush=True)
                     time.sleep(1)
 
-            self.line = f''
+            response = f''
 
             while(self.serial.is_open):
                 if (self.stop): break
@@ -155,18 +163,17 @@ class SerialReceiveThread(threading.Thread):
                     b =  self.serial.read(size=1)
                     if b:
                         if b == b'\r':
-                            self.grbl_driver.process_response(self.line)
-                            self.line = f''
+                            self.post_event(ResponseReveivedEvent(response))
+                            response = f''
                         elif b == b'\r':
                             pass
                         elif b == b'\n':
                             pass
                         else:
-                            self.line += b.decode("utf-8")
+                            response += b.decode("utf-8")
 
                 except serial.SerialException as e:
-                    self.grbl_driver.reset()
-                    self.grbl_driver.post_event(PlotterConnectEvent(False))
+                    self.post_event(PlotterConnectEvent(False))
                     self.serial.close()
                     print ('Connection lost!')
                 
@@ -174,6 +181,11 @@ class SerialReceiveThread(threading.Thread):
             self.serial.close()
 
         print('thread stopped')
+
+    def __del__(self):
+        self.stop = True
+
+        print('SerialReceiveThread __del__ called')
 
 
 
@@ -183,9 +195,9 @@ class GenericDriver:
         self.port = port
         self.reset()
         self.advanced_flow_control = advanced_flow_control
-        self.serial = SerialReceiveThread(self, port)
+        self.serial = None
         self.async_event_queue = async_event_queue
-        self.event_queue = queue.Queue()
+        self.process_serial_events_task = None
 
     def reset(self):
         self.connected = False
@@ -197,29 +209,41 @@ class GenericDriver:
     def flush_queue(self):
         self.gcode_queue = self.gcode_queue[ : self.processed_tail]
 
+    def forward_event(self, event):
+        if self.async_event_queue:
+            self.async_event_queue.put_nowait(event)
+
+    async def process_serial_events(self):
+        while True:
+            await asyncio.sleep(0.01)
+            while self.serial != None:
+                try:
+                    event = self.serial.event_queue.get_nowait()
+                    if isinstance(event, ResponseReveivedEvent):
+                        self.process_response(event.response)
+
+                    self.forward_event(event)
+
+                except queue.Empty:
+                    break
+
     def start(self):
-        self.serial = SerialReceiveThread(self, self.port)
+        self.serial = SerialReceiveThread(self.port)
         self.serial.start()
 
-        asyncio.create_task(self.forward_events())
-
-    async def forward_events(self):
-        while True:
-            await asyncio.sleep(0.1)
-            try:
-                event = self.event_queue.get_nowait()
-                if self.async_event_queue:
-                    self.async_event_queue.put_nowait(event)
-
-            except queue.Empty:
-                pass
+        self.process_serial_events_task = asyncio.create_task(self.process_serial_events())
 
     def stop(self):
         if self.serial != None:
             self.serial.stop = True
             self.serial = None
 
-    def process_queue(self):        
+        if self.process_serial_events_task != None:
+            self.process_serial_events_task.cancel()
+
+    def process_queue(self):
+        if not self.serial: return
+
         for index in range(self.processed_tail, len(self.gcode_queue)):
             head = self.gcode_queue[index]
 
@@ -243,15 +267,9 @@ class GenericDriver:
             head = self.gcode_queue[self.processed_tail]
             head.confirmed = True
             self.processed_tail += 1
-            self.post_event(CommandProcessedEvent(head))
+            self.forward_event(CommandProcessedEvent(head))
             self.send_limit += len(head.command())
             self.process_queue()       
-
-    def post_event(self, event):
-        self.event_queue.put(event)
-
-        # if self.plotter_event_queue != None:
-        #     self.plotter_event_queue.put_nowait(event)
 
 
     def queue_command(self, command):
@@ -268,6 +286,10 @@ class GenericDriver:
 
     def log(self, level, string):
         print(string)
+
+    def __del__(self):
+        print('GenericDriver __del__ called')
+
 
 
 class GrblDriver(GenericDriver):
@@ -309,7 +331,7 @@ class GrblDriver(GenericDriver):
             head = self.gcode_queue[self.processed_tail]
             head.confirmed = True
             self.processed_tail += 1
-            self.post_event(CommandProcessedEvent(head))
+            self.forward_event(CommandProcessedEvent(head))
             self.send_limit += len(head.command())
             self.process_queue()           
 
