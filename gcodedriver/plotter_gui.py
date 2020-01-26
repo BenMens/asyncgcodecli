@@ -1,18 +1,19 @@
+"""GUI for plotter."""
+
 import wx
 import plotter_driver as pd
-import queue
 from serial.tools import list_ports
-from wxasync import AsyncBind, WxAsyncApp, StartCoroutine
+from wxasync import WxAsyncApp
 import asyncio
-from asyncio.events import get_event_loop
+
 
 class PlotterStatus(wx.Control):
     def __init__(self, parent, id):
         wx.Panel.__init__(self, parent, id)
         self.Bind(wx.EVT_PAINT, self.on_paint)
         self.connected = False
-        self.SetMaxSize(wx.Size(20,20))
-        self.SetMinSize(wx.Size(20,20))
+        self.SetMaxSize(wx.Size(20, 20))
+        self.SetMinSize(wx.Size(20, 20))
 
     def on_paint(self, evt):
         dc = wx.PaintDC(self)
@@ -27,6 +28,7 @@ class PlotterStatus(wx.Control):
         dc.DrawCircle(500, 500, 400)
         del dc
 
+
 class PlotterCanvas(wx.Control):
     def __init__(self, parent, id):
         wx.Panel.__init__(self, parent, id)
@@ -35,7 +37,7 @@ class PlotterCanvas(wx.Control):
         self.plotter_driver = None
 
     def on_paint(self, evt):
-        if self.plotter_driver != None:
+        if self.plotter_driver is not None:
             context = self.plotter_driver.get_initial_context()
             dc = wx.PaintDC(self)
             gc = wx.GraphicsContext.Create(dc)
@@ -51,7 +53,8 @@ class PlotterCanvas(wx.Control):
 
             del dc
             del gc
-    
+
+
 class PlotterGUIFrame(wx.Frame):
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
@@ -68,13 +71,20 @@ class PlotterGUIFrame(wx.Frame):
         self.plotter_status = PlotterStatus(self.pnl_top, -1)
 
         self.serial_selection = wx.Choice(self.pnl_top, -1)
-        self.Bind(wx.EVT_CHOICE, self.on_serial_selection, self.serial_selection)
+        self.Bind(
+            wx.EVT_CHOICE,
+            self.on_serial_selection,
+            self.serial_selection)
 
-        self.serial_selection_refresh = wx.Button(self.pnl_top, -1, label="Refresh")
-        self.Bind(wx.EVT_BUTTON, self.on_serial_selection_refresh_button, self.serial_selection_refresh)
+        self.serial_selection_refresh = wx.Button(
+            self.pnl_top, -1, label="Refresh")
+        self.Bind(
+            wx.EVT_BUTTON,
+            self.on_serial_selection_refresh_button,
+            self.serial_selection_refresh)
 
         self.pnl = wx.Panel(self, -1)
-        
+
         self.pnl_left = wx.Panel(self.pnl, -1)
 
         self.home_button = wx.Button(self.pnl_left, -1, label="Home")
