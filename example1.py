@@ -2,6 +2,7 @@
 
 from gcodedriver import Plotter
 
+
 # De onderstaande functie stuurt een reeks van commando's
 # naar de plotter waarmee een figuur wordt getekend
 async def do_plot(plotter):
@@ -25,4 +26,5 @@ async def do_plot(plotter):
 # Gebruik de bovenstaaande functie om de
 # de plotter die verbonden is met de port /dev/cu.usbmodem14201
 # te besturen.
-Plotter.plot('/dev/cu.usbmodem14201', do_plot)
+Plotter.execute('/dev/cu.usbmodem14201', do_plot)
+

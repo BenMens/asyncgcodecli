@@ -105,27 +105,66 @@ class PlotterGUIFrame(wx.Frame):
         self.plotter_canvas = PlotterCanvas(self.pnl, -1)
 
         frame_sizer = wx.BoxSizer(wx.VERTICAL)
-        frame_sizer.Add(self.pnl_top, wx.SizerFlags().Border(wx.LEFT| wx.TOP, 10))
-        frame_sizer.Add(self.pnl,     wx.SizerFlags().Border(wx.LEFT, 10).Proportion(1).Expand())
-        self.SetSizer(frame_sizer)        
+        frame_sizer.Add(
+            self.pnl_top, wx.SizerFlags().Border(wx.LEFT | wx.TOP, 10))
+        frame_sizer.Add(
+            self.pnl,
+            wx.SizerFlags().Border(wx.LEFT, 10).Proportion(1).Expand())
+        self.SetSizer(frame_sizer)
 
         top_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        top_sizer.Add(self.serial_selection,         wx.SizerFlags().Proportion(1).Border(wx.RIGHT, 5).Expand())
-        top_sizer.Add(self.serial_selection_refresh, wx.SizerFlags().Border(wx.RIGHT, 5))
-        top_sizer.Add(self.plotter_status,           wx.SizerFlags().Border(wx.RIGHT, 5))
+        top_sizer.Add(
+            self.serial_selection,
+            wx.SizerFlags().Proportion(1).Border(wx.RIGHT, 5).Expand())
+        top_sizer.Add(
+            self.serial_selection_refresh,
+            wx.SizerFlags().Border(wx.RIGHT, 5))
+        top_sizer.Add(
+            self.plotter_status,
+            wx.SizerFlags().Border(wx.RIGHT, 5))
         self.pnl_top.SetSizer(top_sizer)
 
         sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(self.pnl_left,       wx.SizerFlags().Border(wx.TOP, 20).Align(wx.ALIGN_TOP|wx.ALIGN_LEFT))
-        sizer.Add(self.plotter_canvas, wx.SizerFlags().Shaped().Border(wx.ALL, 20).Proportion(1).Align(wx.ALIGN_TOP|wx.ALIGN_LEFT))
+        sizer.Add(
+            self.pnl_left,
+            wx.SizerFlags().Border(wx.TOP, 20)
+                .Align(wx.ALIGN_TOP | wx.ALIGN_LEFT))
+        sizer.Add(
+            self.plotter_canvas,
+            wx.SizerFlags().Shaped().Border(wx.ALL, 20)
+                .Proportion(1)
+                .Align(wx.ALIGN_TOP | wx.ALIGN_LEFT))
         self.pnl.SetSizer(sizer)
 
         sizer1 = wx.BoxSizer(wx.VERTICAL)
-        sizer1.Add(self.home_button,     wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM, 5).Expand())
-        sizer1.Add(self.pen_up_button,   wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM, 5).Expand())
-        sizer1.Add(self.pen_down_button, wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM, 5).Expand())
-        sizer1.Add(self.flush_button,    wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM, 5).Expand())
-        sizer1.Add(self.draw_button,     wx.SizerFlags().Align(wx.ALIGN_TOP|wx.ALIGN_LEFT).Border(wx.BOTTOM | wx.TOP, 5).Expand())
+        sizer1.Add(
+            self.home_button,
+            wx.SizerFlags()
+                .Align(wx.ALIGN_TOP | wx.ALIGN_LEFT)
+                .Border(wx.BOTTOM, 5).Expand())
+        sizer1.Add(
+            self.pen_up_button,
+            wx.SizerFlags()
+                .Align(wx.ALIGN_TOP | wx.ALIGN_LEFT)
+                .Border(wx.BOTTOM, 5)
+                .Expand())
+        sizer1.Add(
+            self.pen_down_button,
+            wx.SizerFlags().Align(wx.ALIGN_TOP | wx.ALIGN_LEFT)
+                .Border(wx.BOTTOM, 5)
+                .Expand())
+        sizer1.Add(
+            self.flush_button,
+            wx.SizerFlags()
+                .Align(wx.ALIGN_TOP | wx.ALIGN_LEFT)
+                .Border(wx.BOTTOM, 5)
+                .Expand())
+        sizer1.Add(
+            self.draw_button,
+            wx.SizerFlags()
+                .Align(wx.ALIGN_TOP | wx.ALIGN_LEFT)
+                .Border(wx.BOTTOM | wx.TOP, 5)
+                .Expand())
         self.pnl_left.SetSizer(sizer1)
 
         self.eventCount = 0
@@ -137,12 +176,14 @@ class PlotterGUIFrame(wx.Frame):
         wx.App.Get().loop.create_task(self.read_plotter_queue())
 
     def on_serial_selection(self, event):
-        if self.plotter_driver != None: 
+        if self.plotter_driver is not None:
             self.plotter_driver.stop()
 
         self.plotter_status.connected = False
         self.plotter_status.Refresh()
-        self.plotter_driver = pd.Plotter(event.String, self.plotter_event_queue)
+        self.plotter_driver = pd.Plotter(
+            event.String,
+            self.plotter_event_queue)
         self.plotter_canvas.plotter_driver = self.plotter_driver
         self.plotter_driver.start()
 
@@ -164,7 +205,7 @@ class PlotterGUIFrame(wx.Frame):
 
     def on_flush_button(self, event):
         self.plotter_driver.flush_queue()
-        
+
     def on_draw_button(self, event):
         asyncio.create_task(self.perform_draw())
 
@@ -205,3 +246,4 @@ if __name__ == '__main__':
     frm.Show()
     app.SetTopWindow(frm)
     app.loop.run_until_complete(app.MainLoop())
+    
