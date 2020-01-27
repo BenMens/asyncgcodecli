@@ -519,6 +519,34 @@ class UArm(GenericDriver):
         else:
             return self.queue_command(GCodeGenericCommand('M2231 V0'))
 
+    def set_buzzer(self, freq, time):
+        return self.queue_command(
+            GCodeGenericCommand('M2210 F%.2f T%.2f' % (freq, time)))
+
+    def arc(self, clockwise=True, **kw):
+        command = 'G2' if clockwise else 'G3'
+        if 'r' in kw is not None:
+            if 'x' in kw:
+                command += ' X%.2f' % kw['x']
+            if 'y' in kw:
+                command += ' Y%.2f' % kw['y']
+            if 'r' in kw:
+                command += ' R%.2f' % kw['r']
+
+            return self.queue_command(GCodeGenericCommand(command))
+
+        elif 'i' in kw or 'j' in kw:
+            if 'x' in kw:
+                command += ' X%.2f' % kw['x']
+            if 'y' in kw:
+                command += ' Y%.2f' % kw['y']
+            if 'i' in kw:
+                command += ' I%.2f' % kw['i']
+            if 'j' in kw:
+                command += ' J%.2f' % kw['j']
+
+            return self.queue_command(GCodeGenericCommand(command))
+
     async def sleep(self, time: float):
         """
         Wacht even.

@@ -12,6 +12,13 @@ async def do_move_arm(uarm: UArm):
 
     uarm.move(150, 0, 150, 200)
 
+    # uarm.arc(x=200, y=100, r=90)
+    uarm.arc(x=200, y=50, i=0, j=50, clockwise=False)
+
+    for _ in range(1, 5):
+        uarm.set_buzzer(2000, 500)
+        uarm.set_buzzer(5000, 500)
+
     for _ in range(1, 5):
         uarm.move(150, 0, 10, 200)
         uarm.move(350, 0, 10, 200)
