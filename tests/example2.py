@@ -1,6 +1,6 @@
 """Voorbeeld 2."""
 
-from driver import UArm
+from context import UArm
 
 
 # De onderstaande functie stuurt een reeks van commando's
@@ -13,10 +13,14 @@ async def do_move_arm(uarm: UArm):
     uarm.move(150, 0, 150, 200)
 
     for _ in range(1, 5):
-        uarm.move(150, -200, 100, 200)
-        uarm.move(150,    0, 100, 200)
-        uarm.move(150,  100, 100,  50)
-        uarm.move(150,  200, 100,  25)
+        uarm.move(150, 0, 10, 200)
+        uarm.move(350, 0, 10, 200)
+
+    # for _ in range(1, 5):
+    #     uarm.move(150, -200, 100, 200)
+    #     uarm.move(150,    0, 100, 200)
+    #     uarm.move(150,  100, 100,  50)
+    #     uarm.move(150,  200, 100,  25)
 
     # for i in range(1,5):
     #     uarm.move(150, 200, 100, 200)

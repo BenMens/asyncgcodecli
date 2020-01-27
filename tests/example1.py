@@ -1,6 +1,6 @@
 """Voorbeeld 1."""
 
-from asyncgcodecli import Plotter
+from context import Plotter
 
 
 # De onderstaande functie stuurt een reeks van commando's

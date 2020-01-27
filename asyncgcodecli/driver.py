@@ -218,7 +218,7 @@ class GenericDriver:
         self.__conected = False
         self.__processed_tail = 0
         self.__gcode_queue = []
-        self.__send_limit = 120
+        self.__send_limit = 128
         self.__status = 'Unknown'
         self._ready_future = asyncio.Future()
         self.settings = {}
