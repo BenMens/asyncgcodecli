@@ -1,4 +1,4 @@
-"""Module voor het aansturen van een gcode apparaat via de seriele poort."""
+"""Driver voor het aansturen van een gcode apparaat via de seriele poort."""
 
 import serial
 import threading
@@ -6,7 +6,6 @@ import time
 import queue
 import re
 import asyncio
-import wx
 
 TRACE = 1
 
@@ -42,6 +41,8 @@ class ResponseReveivedEvent(GCodeDeviceEvent):
 
 class GCodeResult(asyncio.Future):
     """
+    Het resultaat van een gcode-opdracht.
+
     GCodeResult is het resultaat dat het aangesloten apparaat zoals een
     robotarm, teruggeeft op een gcode-opdracht. Omdat het tijd kost voor
     het aangeslopen apparaat om de opdracht te verwerken, duurt het ook
@@ -77,9 +78,6 @@ class GCodeCommand:
     def command(self):
         return b''
 
-    def draw(self, context):
-        pass
-
 
 class GCodeGenericCommand(GCodeCommand):
     def __init__(self, gcode, *args, **kw):
@@ -112,21 +110,6 @@ class GCodeMoveCommand(GCodeCommand):
         result += b'\r'
         return result
 
-    def draw(self, context):
-        spindle = context['spindle']
-        if spindle >= 900:
-            gc = context['gc']
-            x1 = context['x']
-            y1 = context['y']
-            gc.SetPen(wx.Pen("black", width=3))
-            path = gc.CreatePath()
-            path.MoveToPoint(x1 * 10, y1 * 10)
-            path.AddLineToPoint(self.x * 10, self.y * 10)
-            gc.StrokePath(path)
-
-        context['x'] = self.x
-        context['y'] = self.y
-
 
 class GCodeHomeCommand(GCodeCommand):
     def __init__(self, *args, **kw):
@@ -134,10 +117,6 @@ class GCodeHomeCommand(GCodeCommand):
 
     def command(self):
         return b'$h\r'
-
-    def draw(self, context):
-        context['x'] = 0
-        context['y'] = 0
 
 
 class GCodeSetSpindleCommand(GCodeCommand):
@@ -147,9 +126,6 @@ class GCodeSetSpindleCommand(GCodeCommand):
 
     def command(self):
         return b'M3 S%.2f\r' % (self.pos)
-
-    def draw(self, context):
-        context['spindle'] = self.pos
 
 
 class GCodeWaitCommand(GCodeCommand):
@@ -242,7 +218,7 @@ class GenericDriver:
         self.__conected = False
         self.__processed_tail = 0
         self.__gcode_queue = []
-        self.__send_limit = 100
+        self.__send_limit = 120
         self.__status = 'Unknown'
         self._ready_future = asyncio.Future()
         self.settings = {}
@@ -339,13 +315,6 @@ class GenericDriver:
 
     def ready(self):
         return self._ready_future
-
-    def get_initial_context(self):
-        return {
-            'x': 0,
-            'y': 0,
-            'spindle': 900
-        }
 
     def _log(self, level, string):
         print(string)
@@ -467,28 +436,32 @@ class UArm(GenericDriver):
 
     def move(self, x: float, y: float, z: float, speed: float = 100):
         """
-            Beweeg de robot arm naar het punt (x, y, z) met de
-            aangegeven snelheid.
+        Beweeg robotarm.
 
-            Parameters:
-            -----------
-                x : float
-                    x-doelpositie
-                y : float
-                    y-doelpositie
-                z : float
-                    z-doelpositie
-                speed:
-                    float De beweegsnelheid. 200 is het maximum.
+        Beweeg de robot arm naar het punt (x, y, z) met de
+        aangegeven snelheid.
 
-            Resultaat:
-            ----------
-                GCodeResult: Een future voor het resultaat.
+        Parameters:
+        -----------
+            x : float
+                x-doelpositie
+            y : float
+                y-doelpositie
+            z : float
+                z-doelpositie
+            speed:
+                float De beweegsnelheid. 200 is het maximum.
+
+        Resultaat:
+        ----------
+            GCodeResult: Een future voor het resultaat.
         """
         return self.queue_command(GCodeMoveCommand(x=x, y=y, z=z, speed=speed))
 
     def set_wrist(self, angle: float):
         """
+        Draai de pompeenheid.
+
         Draai de pompeenheid op de robotarm naar de opgegeven hoek.
 
         Parameters:
@@ -505,6 +478,8 @@ class UArm(GenericDriver):
 
     def set_mode(self, mode: int):
         """
+        Stel mode in.
+
         Stel de robotarm in op de gewenste mode
 
         Parameters:
@@ -528,7 +503,7 @@ class UArm(GenericDriver):
 
     def set_pump(self, on: bool):
         """
-        Zet de pomp aan of uit
+        Zet de pomp aan of uit.
 
         Parameters:
         -----------
@@ -539,7 +514,6 @@ class UArm(GenericDriver):
         ----------
             GCodeResult: Een future voor het resultaat.
         """
-
         if on:
             return self.queue_command(GCodeGenericCommand('M2231 V1'))
         else:
@@ -547,6 +521,8 @@ class UArm(GenericDriver):
 
     async def sleep(self, time: float):
         """
+        Wacht even.
+
         Wacht eerst tot de robotarm alle opdrachten in de wachtrij heeft
         uitgevoerd en klaar is met bewegen. Wacht daarna nog een
         beetje extra.
@@ -564,24 +540,18 @@ class UArm(GenericDriver):
 
                 await uarm.sleep(1)
         """
-
         await self.queue_empty()
         await asyncio.sleep(time)
 
     @staticmethod
-    # def execute(port: str, script: Callable[[UArm], None]):
-    def execute(port: str, mode: int, script):
-        """Execute script on UArm.
+    def execute(port: str, script):
+        """
+        Voer script uit op UArm.
 
-        Verbind met de robotarm op de opgegeven port en stel deze in op
-        de opgegeven mode. Voert dan het opgegeven script uit.
-
-        Parameters
-        ----------
-            port: str
-                bijvoorbeeld: '/dev/cu.usbmodem14101'
-            script: Callable[[UArm], None]
-                Het uit te voeren script.
+        Args:
+        -----
+            port (str): bijvoorbeeld: '/dev/cu.usbmodem14101'
+            script (script): Het uit te voeren script.
 
         Voorbeeld::
 
@@ -589,6 +559,7 @@ class UArm(GenericDriver):
                 uarm.move(150, 0, 150, 200)
 
             UArm.send('/dev/cu.usbmodem14101', 2, do_move_arm)
+
         """
         async def do_execute():
             uarm = UArm(port)

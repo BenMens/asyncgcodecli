@@ -1,6 +1,6 @@
 """Voorbeeld 1."""
 
-from gcodedriver import Plotter
+from asyncgcodecli import Plotter
 
 
 # De onderstaande functie stuurt een reeks van commando's
