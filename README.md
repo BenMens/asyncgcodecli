@@ -5,7 +5,9 @@ UArm is supported. This library uses asyncio.
 
 ## Installation ##
 
-```shell
+```bash
+pip3 install pyserial
+
 pip3 install git+https://github.com/BenMens/asyncgcodecli
 ```
 

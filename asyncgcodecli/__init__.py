@@ -1,9 +1,7 @@
 """Module voor het aansturen van een gcode apparaat via de seriele poort."""
 
-from . import driver
+from .driver import Plotter, GCodeResult
+from .uarm import UArm
 
-UArm = driver.UArm
-Plotter = driver.Plotter
-GCodeResult = driver.GCodeResult
 
-del driver
+__all__ = ['Plotter', 'UArm', 'GCodeResult']
