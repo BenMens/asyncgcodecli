@@ -13,7 +13,7 @@ setuptools.setup(
     description="Client library to control gcode severs",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/pypa/sampleproject",
+    url="https://github.com/BenMens/asyncgcodecli",
     packages=setuptools.find_packages(),
     platforms=['all'],
     license='MIT License',
