@@ -11,6 +11,12 @@ pip3 install pyserial
 pip3 install git+https://github.com/BenMens/asyncgcodecli
 ```
 
+## Update to latest version ##
+
+```bash
+pip3 install --upgrade  git+https://github.com/BenMens/asyncgcodecli
+```
+
 ## Example ##
 
 ```python
