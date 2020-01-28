@@ -4,5 +4,12 @@
     "python.linting.pylintEnabled": false,
     "python.linting.pydocstyleEnabled": false,
     "python.linting.flake8Enabled": true,
-    "python.linting.pydocstyleArgs": []
+    "python.linting.pydocstyleArgs": [],
+    "markdownlint.config": {
+        "default": true,
+        "MD003": { "style": "atx_closed" },
+        "MD007": { "indent": 4 },
+        "MD046": false,
+        "MD044": true
+    }
 }

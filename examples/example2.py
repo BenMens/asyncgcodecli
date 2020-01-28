@@ -1,4 +1,4 @@
-"""Example"""
+"""Example."""
 
 from asyncgcodecli import UArm
 
