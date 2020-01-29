@@ -11,5 +11,6 @@
         "MD007": { "indent": 4 },
         "MD046": false,
         "MD044": true
-    }
+    },
+    "autoDocstring.docstringFormat": "sphinx"
 }

@@ -155,7 +155,7 @@ class SerialReceiveThread(threading.Thread):
     def run(self):
         while (not self.stop):
 
-            print('Connecting ', end='', flush=True)
+            print('Connecting to {} '.format(self.port), end='', flush=True)
 
             while (not self.__serial.is_open):
                 if (self.stop):

@@ -1,4 +1,4 @@
-""""Driver for the UArm Swift Pro."""
+"""Driver for the UArm Swift Pro."""
 
 import asyncio
 from asyncgcodecli.driver import \
@@ -8,6 +8,8 @@ from asyncgcodecli.driver import \
 
 
 class UArm(GenericDriver):
+    """Stelt een UArm voor."""
+
     def __init__(self, port, *args, **kw):
         super().__init__(port, *args, **kw)
         self.limit_switch_on = False
@@ -177,32 +179,53 @@ class UArm(GenericDriver):
         await asyncio.sleep(time)
 
     @staticmethod
-    def execute(port: str, script):
+    def execute(port: any, script):
         """
         Voer script uit op UArm.
 
         Args:
         -----
-            port (str): bijvoorbeeld: '/dev/cu.usbmodem14101'
+            port (str of list): bijvoorbeeld: '/dev/cu.usbmodem14101' of
+                        ['/dev/cu.usbmodem14101', '/dev/cu.usbmodem14201']
             script (script): Het uit te voeren script.
 
-        Voorbeeld::
+        Voorbeeld met 1 robotarm::
 
             async def do_move_arm(uarm: UArm):
                 uarm.move(150, 0, 150, 200)
 
-            UArm.send('/dev/cu.usbmodem14101', 2, do_move_arm)
+            UArm.send('/dev/cu.usbmodem14101', do_move_arm)
 
+
+        Voorbeeld met 2 robotarmen::
+
+            async def do_move_arm(uarms: UArm):
+                for arm in arms:
+                    uarm.move(150, 0, 150, 200)
+
+            UArm.send(
+                ['/dev/cu.usbmodem14101', '/dev/cu.usbmodem14201'],
+                do_move_arm)
         """
         async def do_execute():
-            uarm = UArm(port)
-            uarm.start()
-            await uarm.ready()
+            uarms = []
+            if isinstance(port, list):
+                uarms = [UArm(p) for p in port]
+            else:
+                uarms = [UArm(port)]
 
-            await script(uarm)
+            for uarm in uarms:
+                uarm.start()
+                await uarm.ready()
 
-            await uarm.queue_empty()
-            uarm.stop()
-            await asyncio.sleep(2)
+            if isinstance(port, list):
+                await script(uarms)
+            else:
+                await script(uarms[0])
+
+            for uarm in uarms:
+                await uarm.queue_empty()
+                uarm.stop()
+                await asyncio.sleep(2)
 
         asyncio.run(do_execute())

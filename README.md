@@ -1,7 +1,7 @@
 # Async gcode client #
 
 This is a async client library to control gcode severs. Currently only
-UArm is supported. This library uses asyncio.
+UArm Swift Pro is supported. This library uses asyncio.
 
 ## Installation ##
 
@@ -15,6 +15,12 @@ pip3 install git+https://github.com/BenMens/asyncgcodecli
 
 ```bash
 pip3 install --upgrade  git+https://github.com/BenMens/asyncgcodecli
+```
+
+## Read documentation ##
+
+```bash
+pydoc3 asyncgcodecli.UArm
 ```
 
 ## Example ##
