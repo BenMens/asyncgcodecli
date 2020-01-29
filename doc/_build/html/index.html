@@ -1,0 +1,248 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <title>Welcome to async gcode client’s documentation! &#8212; async gcode client 0.0.1 documentatie</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <script type="text/javascript" src="_static/translations.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Zoeken" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="welcome-to-async-gcode-client-s-documentation">
+<h1>Welcome to async gcode client’s documentation!<a class="headerlink" href="#welcome-to-async-gcode-client-s-documentation" title="Permalink naar deze titel">¶</a></h1>
+<div class="toctree-wrapper compound">
+</div>
+<dl class="class">
+<dt id="asyncgcodecli.uarm.UArm">
+<em class="property">class </em><code class="sig-prename descclassname">asyncgcodecli.uarm.</code><code class="sig-name descname">UArm</code><span class="sig-paren">(</span><em class="sig-param">port</em>, <em class="sig-param">*args</em>, <em class="sig-param">**kw</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm" title="Permalink naar deze definitie">¶</a></dt>
+<dd><p>Stelt een UArm voor.</p>
+<dl class="method">
+<dt id="asyncgcodecli.uarm.UArm.execute">
+<em class="property">static </em><code class="sig-name descname">execute</code><span class="sig-paren">(</span><em class="sig-param">port: any</em>, <em class="sig-param">script</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.execute" title="Permalink naar deze definitie">¶</a></dt>
+<dd><p>Voer script uit op UArm.</p>
+<blockquote>
+<div><dl class="simple">
+<dt>port<span class="classifier">str of list</span></dt><dd><dl class="simple">
+<dt>bijvoorbeeld:</dt><dd><p>‘/dev/cu.usbmodem14101’ of
+[‘/dev/cu.usbmodem14101’, ‘/dev/cu.usbmodem14201’]</p>
+</dd>
+</dl>
+</dd>
+<dt>script<span class="classifier">script</span></dt><dd><p>Het uit te voeren script.</p>
+</dd>
+</dl>
+</div></blockquote>
+<p>Voorbeeld met 1 robotarm:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span> <span class="nf">do_move_arm</span><span class="p">(</span><span class="n">uarm</span><span class="p">:</span> <span class="n">UArm</span><span class="p">):</span>
+    <span class="n">uarm</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="mi">150</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">150</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+
+<span class="n">UArm</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="s1">&#39;/dev/cu.usbmodem14101&#39;</span><span class="p">,</span> <span class="n">do_move_arm</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Voorbeeld met 2 robotarmen:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span> <span class="nf">do_move_arm</span><span class="p">(</span><span class="n">uarms</span><span class="p">:</span> <span class="n">UArm</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">arms</span><span class="p">:</span>
+        <span class="n">uarm</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="mi">150</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">150</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+
+<span class="n">UArm</span><span class="o">.</span><span class="n">send</span><span class="p">(</span>
+    <span class="p">[</span><span class="s1">&#39;/dev/cu.usbmodem14101&#39;</span><span class="p">,</span> <span class="s1">&#39;/dev/cu.usbmodem14201&#39;</span><span class="p">],</span>
+    <span class="n">do_move_arm</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="asyncgcodecli.uarm.UArm.move">
+<code class="sig-name descname">move</code><span class="sig-paren">(</span><em class="sig-param">x: float</em>, <em class="sig-param">y: float</em>, <em class="sig-param">z: float</em>, <em class="sig-param">speed: float = 100</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.move" title="Permalink naar deze definitie">¶</a></dt>
+<dd><p>Beweeg robotarm.</p>
+<p>Beweeg de robot arm naar het punt (x, y, z) met de
+aangegeven snelheid.</p>
+<blockquote>
+<div><dl class="simple">
+<dt>x<span class="classifier">float</span></dt><dd><p>x-doelpositie</p>
+</dd>
+<dt>y<span class="classifier">float</span></dt><dd><p>y-doelpositie</p>
+</dd>
+<dt>z<span class="classifier">float</span></dt><dd><p>z-doelpositie</p>
+</dd>
+<dt>speed:</dt><dd><p>float De beweegsnelheid. 200 is het maximum.</p>
+</dd>
+</dl>
+</div></blockquote>
+<blockquote>
+<div><p>GCodeResult: Een future voor het resultaat.</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="method">
+<dt id="asyncgcodecli.uarm.UArm.set_mode">
+<code class="sig-name descname">set_mode</code><span class="sig-paren">(</span><em class="sig-param">mode: int</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.set_mode" title="Permalink naar deze definitie">¶</a></dt>
+<dd><p>Stel mode in.</p>
+<p>Stel de robotarm in op de gewenste mode</p>
+<blockquote>
+<div><p>mode : int</p>
+<blockquote>
+<div><p>0: Standard Suction mode
+1: Laser mode
+2: 3D printing mode
+3: Universal holder mode
+4: Pro Suction mode
+5: Plus Suction mode
+6: Touch Pen mode</p>
+</div></blockquote>
+</div></blockquote>
+<blockquote>
+<div><p>GCodeResult: Een future voor het resultaat.</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="method">
+<dt id="asyncgcodecli.uarm.UArm.set_pump">
+<code class="sig-name descname">set_pump</code><span class="sig-paren">(</span><em class="sig-param">on: bool</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.set_pump" title="Permalink naar deze definitie">¶</a></dt>
+<dd><p>Zet de pomp aan of uit.</p>
+<blockquote>
+<div><dl class="simple">
+<dt>on<span class="classifier">bool</span></dt><dd><p>True voor aan, False voor uit</p>
+</dd>
+</dl>
+</div></blockquote>
+<blockquote>
+<div><p>GCodeResult: Een future voor het resultaat.</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="method">
+<dt id="asyncgcodecli.uarm.UArm.set_wrist">
+<code class="sig-name descname">set_wrist</code><span class="sig-paren">(</span><em class="sig-param">angle: float</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.set_wrist" title="Permalink naar deze definitie">¶</a></dt>
+<dd><p>Draai de pompeenheid.</p>
+<p>Draai de pompeenheid op de robotarm naar de opgegeven hoek.</p>
+<blockquote>
+<div><dl class="simple">
+<dt>angle<span class="classifier">float</span></dt><dd><p>De gewenste draaihoek</p>
+</dd>
+</dl>
+</div></blockquote>
+<blockquote>
+<div><p>GCodeResult: Een future voor het resultaat.</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="method">
+<dt id="asyncgcodecli.uarm.UArm.sleep">
+<em class="property">async </em><code class="sig-name descname">sleep</code><span class="sig-paren">(</span><em class="sig-param">time: float</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.sleep" title="Permalink naar deze definitie">¶</a></dt>
+<dd><p>Wacht even.</p>
+<p>Wacht eerst tot de robotarm alle opdrachten in de wachtrij heeft
+uitgevoerd en klaar is met bewegen. Wacht daarna nog een
+beetje extra.</p>
+<blockquote>
+<div><p>time : float De extra wachtijd in seconden</p>
+</div></blockquote>
+<blockquote>
+<div><p>coroutine: Deze functie geeft een coroutine als resultaat. Daarom
+moet je await gebruiken.</p>
+<p>Voorbeeld:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">await</span> <span class="n">uarm</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink naar deze titel">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module-index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Zoekpagina</span></a></p></li>
+</ul>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">async gcode client</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigatie</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Snel zoeken</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Zoek" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Ben Mens.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

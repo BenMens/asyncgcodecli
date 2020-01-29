@@ -183,11 +183,14 @@ class UArm(GenericDriver):
         """
         Voer script uit op UArm.
 
-        Args:
-        -----
-            port (str of list): bijvoorbeeld: '/dev/cu.usbmodem14101' of
-                        ['/dev/cu.usbmodem14101', '/dev/cu.usbmodem14201']
-            script (script): Het uit te voeren script.
+        Parameters
+        ----------
+            port : str of list
+                bijvoorbeeld:
+                    '/dev/cu.usbmodem14101' of
+                    ['/dev/cu.usbmodem14101', '/dev/cu.usbmodem14201']
+            script : script
+                Het uit te voeren script.
 
         Voorbeeld met 1 robotarm::
 
