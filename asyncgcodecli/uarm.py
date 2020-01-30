@@ -1,5 +1,9 @@
 """Driver for the UArm Swift Pro."""
 
+__all__ = [
+    'UArm'
+]
+
 import asyncio
 from asyncgcodecli.driver import \
     GenericDriver, \
@@ -11,6 +15,14 @@ class UArm(GenericDriver):
     """Stelt een UArm voor."""
 
     def __init__(self, port, *args, **kw):
+        """
+        Maak een nieuw UArm object.
+
+        Parameters
+        ----------
+        port : string
+            De naam van de usb port.
+        """
         super().__init__(port, *args, **kw)
         self.limit_switch_on = False
 
@@ -45,23 +57,24 @@ class UArm(GenericDriver):
         """
         Beweeg robotarm.
 
-        Beweeg de robot arm naar het punt (x, y, z) met de
+        Beweeg de robotarm naar het punt (x, y, z) met de
         aangegeven snelheid.
 
-        Parameters:
-        -----------
-            x : float
-                x-doelpositie
-            y : float
-                y-doelpositie
-            z : float
-                z-doelpositie
-            speed:
-                float De beweegsnelheid. 200 is het maximum.
-
-        Resultaat:
+        Parameters
         ----------
-            GCodeResult: Een future voor het resultaat.
+        x : float
+            x-doelpositie
+        y : float
+            y-doelpositie
+        z : float
+            z-doelpositie
+        speed : float
+            De beweegsnelheid. 200 is het maximum.
+
+        Returns
+        -------
+        GCodeResult
+            Een future voor het resultaat.
         """
         return self.queue_command(GCodeMoveCommand(x=x, y=y, z=z, speed=speed))
 
@@ -71,14 +84,15 @@ class UArm(GenericDriver):
 
         Draai de pompeenheid op de robotarm naar de opgegeven hoek.
 
-        Parameters:
-        -----------
-            angle : float
-                De gewenste draaihoek
-
-        Resultaat:
+        Parameters
         ----------
-            GCodeResult: Een future voor het resultaat.
+        angle : float
+            De gewenste draaihoek
+
+        Returns
+        -------
+        GCodeResult
+            Een future voor het resultaat.
         """
         return self.queue_command(
             GCodeGenericCommand('G2202 N3 V%.2f F1' % angle))
@@ -89,21 +103,22 @@ class UArm(GenericDriver):
 
         Stel de robotarm in op de gewenste mode
 
-        Parameters:
-        -----------
-            mode : int
-
-                0: Standard Suction mode
-                1: Laser mode
-                2: 3D printing mode
-                3: Universal holder mode
-                4: Pro Suction mode
-                5: Plus Suction mode
-                6: Touch Pen mode
-
-        Resultaat:
+        Parameters
         ----------
-            GCodeResult: Een future voor het resultaat.
+        mode : int
+
+            0: Standard Suction mode
+            1: Laser mode
+            2: 3D printing mode
+            3: Universal holder mode
+            4: Pro Suction mode
+            5: Plus Suction mode
+            6: Touch Pen mode
+
+        Returns
+        -------
+        GCodeResult
+            Een future voor het resultaat.
         """
         return self.queue_command(
             GCodeGenericCommand('M2400 S{}'.format(mode)))
@@ -112,25 +127,77 @@ class UArm(GenericDriver):
         """
         Zet de pomp aan of uit.
 
-        Parameters:
-        -----------
-            on : bool
-                True voor aan, False voor uit
-
-        Resultaat:
+        Parameters
         ----------
-            GCodeResult: Een future voor het resultaat.
+        on : bool
+            True voor aan, False voor uit
+
+        Returns
+        -------
+        GCodeResult
+            Een future voor het resultaat.
         """
         if on:
             return self.queue_command(GCodeGenericCommand('M2231 V1'))
         else:
             return self.queue_command(GCodeGenericCommand('M2231 V0'))
 
-    def set_buzzer(self, freq, time):
+    def set_buzzer(self, freq: float, time: float):
+        """
+        Maak geluid.
+
+        Maak geluid met de zoemer.
+
+        Parameters
+        ----------
+        freq : float
+            De frequentie
+        time : float
+            Tijd in milliseconden
+
+        Returns
+        -------
+        GCodeResult
+            Een future voor het resultaat.
+        """
         return self.queue_command(
             GCodeGenericCommand('M2210 F%.2f T%.2f' % (freq, time)))
 
     def arc(self, clockwise=True, **kw):
+        """
+        Beweeg in een boog.
+
+        Parameters
+        ----------
+        x : float
+            Doelpositie x
+        y : float
+            Doelpositie y
+        r : float
+            De hoek in graden
+        clockwise : bool
+            True = met de klok mee (default)
+            False = tegen de kok in
+
+        Parameters
+        ----------
+        x : float
+            Doelpositie x
+        y : float
+            Doelpositie y
+        i : float
+            x offset vanaf beginpunt naar moddelpint cirkel
+        j : float
+            y offset vanaf beginpunt naar moddelpint cirkel
+        clockwise : bool
+            True = met de klok mee (default)
+            False = tegen de kok in
+
+        Returns
+        -------
+        GCodeResult
+            Een future voor het resultaat.
+        """
         command = 'G2' if clockwise else 'G3'
         if 'r' in kw is not None:
             if 'x' in kw:
@@ -162,36 +229,41 @@ class UArm(GenericDriver):
         uitgevoerd en klaar is met bewegen. Wacht daarna nog een
         beetje extra.
 
-        Parameters:
-        -----------
-            time : float De extra wachtijd in seconden
-
-        Resultaat:
+        Parameters
         ----------
-            coroutine: Deze functie geeft een coroutine als resultaat. Daarom
+        time : float De extra wachtijd in seconden
+
+        Returns
+        -------
+        coroutine
+            Deze functie geeft een coroutine als resultaat. Daarom
             moet je await gebruiken.
 
-            Voorbeeld::
+        Example
+        -------
 
-                await uarm.sleep(1)
+        Wacht 1 seconde::
+
+            await uarm.sleep(1)
         """
         await self.queue_empty()
         await asyncio.sleep(time)
 
     @staticmethod
-    def execute(port: any, script):
+    def execute_on_printer(port: any, script):
         """
-        Voer script uit op UArm.
+        Voer een script uit op de UArm.
 
         Parameters
         ----------
-            port : str of list
-                bijvoorbeeld:
-                    '/dev/cu.usbmodem14101' of
-                    ['/dev/cu.usbmodem14101', '/dev/cu.usbmodem14201']
-            script : script
-                Het uit te voeren script.
+        port : str
+            bijvoorbeeld:
+                '/dev/cu.usbmodem14101'
+        script : script
+            Het uit te voeren script.
 
+        Examples
+        --------
         Voorbeeld met 1 robotarm::
 
             async def do_move_arm(uarm: UArm):
@@ -199,7 +271,34 @@ class UArm(GenericDriver):
 
             UArm.send('/dev/cu.usbmodem14101', do_move_arm)
 
+        """
+        async def do_execute():
+            uarm = UArm(port)
 
+            uarm.start()
+            await uarm.ready()
+
+            await script(uarm)
+
+            await uarm.queue_empty()
+            uarm.stop()
+            await asyncio.sleep(2)
+
+    @staticmethod
+    def execute_on_printers(port: list, script):
+        """
+        Voer een script uit op meerdere UArms.
+
+        Parameters
+        ----------
+        port : list
+            bijvoorbeeld:
+                ['/dev/cu.usbmodem14101', '/dev/cu.usbmodem14201']
+        script : script
+            Het uit te voeren script.
+
+        Examples
+        --------
         Voorbeeld met 2 robotarmen::
 
             async def do_move_arm(uarms: UArm):
@@ -211,20 +310,13 @@ class UArm(GenericDriver):
                 do_move_arm)
         """
         async def do_execute():
-            uarms = []
-            if isinstance(port, list):
-                uarms = [UArm(p) for p in port]
-            else:
-                uarms = [UArm(port)]
+            uarms = [UArm(p) for p in port]
 
             for uarm in uarms:
                 uarm.start()
                 await uarm.ready()
 
-            if isinstance(port, list):
-                await script(uarms)
-            else:
-                await script(uarms[0])
+            await script(uarms)
 
             for uarm in uarms:
                 await uarm.queue_empty()
