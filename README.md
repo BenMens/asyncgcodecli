@@ -17,13 +17,9 @@ pip3 install git+https://github.com/BenMens/asyncgcodecli
 pip3 install --upgrade  git+https://github.com/BenMens/asyncgcodecli
 ```
 
-## Read documentation ##
+## Documentation ##
 
 [online documentation](https://benmens.github.io/asyncgcodecli/index.html)
-
-```bash
-pydoc3 asyncgcodecli.UArm
-```
 
 ## Example ##
 

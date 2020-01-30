@@ -21,5 +21,5 @@ help:
 
 docs: Makefile
 	@$(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
-	# rm ../docs
+	-rm ../docs
 	mv _build/html ../docs 
