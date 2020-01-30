@@ -250,23 +250,20 @@ class UArm(GenericDriver):
         await asyncio.sleep(time)
 
     @staticmethod
-    def execute(port: any, script):
+    def execute_on_printer(port: any, script):
         """
-        Voer script uit op UArm.
+        Voer een script uit op de UArm.
 
         Parameters
         ----------
-        port : str of list
-            bijvoorbeeld::
+        port : str
+            bijvoorbeeld:
                 '/dev/cu.usbmodem14101'
-                ['/dev/cu.usbmodem14101', '/dev/cu.usbmodem14201']
         script : script
             Het uit te voeren script.
 
-
         Examples
         --------
-
         Voorbeeld met 1 robotarm::
 
             async def do_move_arm(uarm: UArm):
@@ -274,7 +271,34 @@ class UArm(GenericDriver):
 
             UArm.send('/dev/cu.usbmodem14101', do_move_arm)
 
+        """
+        async def do_execute():
+            uarm = UArm(port)
 
+            uarm.start()
+            await uarm.ready()
+
+            await script(uarm)
+
+            await uarm.queue_empty()
+            uarm.stop()
+            await asyncio.sleep(2)
+
+    @staticmethod
+    def execute_on_printers(port: list, script):
+        """
+        Voer een script uit op meerdere UArms.
+
+        Parameters
+        ----------
+        port : list
+            bijvoorbeeld:
+                ['/dev/cu.usbmodem14101', '/dev/cu.usbmodem14201']
+        script : script
+            Het uit te voeren script.
+
+        Examples
+        --------
         Voorbeeld met 2 robotarmen::
 
             async def do_move_arm(uarms: UArm):
@@ -286,20 +310,13 @@ class UArm(GenericDriver):
                 do_move_arm)
         """
         async def do_execute():
-            uarms = []
-            if isinstance(port, list):
-                uarms = [UArm(p) for p in port]
-            else:
-                uarms = [UArm(port)]
+            uarms = [UArm(p) for p in port]
 
             for uarm in uarms:
                 uarm.start()
                 await uarm.ready()
 
-            if isinstance(port, list):
-                await script(uarms)
-            else:
-                await script(uarms[0])
+            await script(uarms)
 
             for uarm in uarms:
                 await uarm.queue_empty()

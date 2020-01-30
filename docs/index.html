@@ -69,15 +69,14 @@ False = tegen de kok in</p></li>
 </dd></dl>
 
 <dl class="method">
-<dt id="asyncgcodecli.uarm.UArm.execute">
-<em class="property">static </em><code class="sig-name descname">execute</code><span class="sig-paren">(</span><em class="sig-param">port: any</em>, <em class="sig-param">script</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.execute" title="Permalink naar deze definitie">¶</a></dt>
-<dd><p>Voer script uit op UArm.</p>
+<dt id="asyncgcodecli.uarm.UArm.execute_on_printer">
+<em class="property">static </em><code class="sig-name descname">execute_on_printer</code><span class="sig-paren">(</span><em class="sig-param">port: any</em>, <em class="sig-param">script</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.execute_on_printer" title="Permalink naar deze definitie">¶</a></dt>
+<dd><p>Voer een script uit op de UArm.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>port</strong> (<em>str of list</em>) – <dl class="simple">
-<dt>bijvoorbeeld::</dt><dd><p>’/dev/cu.usbmodem14101’
-[‘/dev/cu.usbmodem14101’, ‘/dev/cu.usbmodem14201’]</p>
+<li><p><strong>port</strong> (<em>str</em>) – <dl class="simple">
+<dt>bijvoorbeeld:</dt><dd><p>’/dev/cu.usbmodem14101’</p>
 </dd>
 </dl>
 </p></li>
@@ -93,6 +92,25 @@ False = tegen de kok in</p></li>
 <span class="n">UArm</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="s1">&#39;/dev/cu.usbmodem14101&#39;</span><span class="p">,</span> <span class="n">do_move_arm</span><span class="p">)</span>
 </pre></div>
 </div>
+</dd></dl>
+
+<dl class="method">
+<dt id="asyncgcodecli.uarm.UArm.execute_on_printers">
+<em class="property">static </em><code class="sig-name descname">execute_on_printers</code><span class="sig-paren">(</span><em class="sig-param">port: list</em>, <em class="sig-param">script</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.execute_on_printers" title="Permalink naar deze definitie">¶</a></dt>
+<dd><p>Voer een script uit op meerdere UArms.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>port</strong> (<em>list</em>) – <dl class="simple">
+<dt>bijvoorbeeld:</dt><dd><p>[‘/dev/cu.usbmodem14101’, ‘/dev/cu.usbmodem14201’]</p>
+</dd>
+</dl>
+</p></li>
+<li><p><strong>script</strong> (<em>script</em>) – Het uit te voeren script.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
 <p>Voorbeeld met 2 robotarmen:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span> <span class="nf">do_move_arm</span><span class="p">(</span><span class="n">uarms</span><span class="p">:</span> <span class="n">UArm</span><span class="p">):</span>
     <span class="k">for</span> <span class="n">arm</span> <span class="ow">in</span> <span class="n">arms</span><span class="p">:</span>
@@ -138,7 +156,7 @@ aangegeven snelheid.</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>freq</strong> (<em>float</em>) – De frequentie</p></li>
-<li><p><strong>time</strong> (<em>float</em>) – tijd in milliseconden</p></li>
+<li><p><strong>time</strong> (<em>float</em>) – Tijd in milliseconden</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
