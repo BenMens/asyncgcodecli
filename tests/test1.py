@@ -3,9 +3,8 @@
 from context import UArm
 
 
-async def move_script(uarms: UArm):
+async def move_script(uarm: UArm):
     """Move robot arm script."""
-    uarm = uarms[0]
 
     """Beweeg de robotarm in een cool patroon."""
     # set de robot arm op mode 0 (pomp)
