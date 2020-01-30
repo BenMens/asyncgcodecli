@@ -40,21 +40,52 @@
 <em class="property">class </em><code class="sig-prename descclassname">asyncgcodecli.uarm.</code><code class="sig-name descname">UArm</code><span class="sig-paren">(</span><em class="sig-param">port</em>, <em class="sig-param">*args</em>, <em class="sig-param">**kw</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm" title="Permalink naar deze definitie">¶</a></dt>
 <dd><p>Stelt een UArm voor.</p>
 <dl class="method">
+<dt id="asyncgcodecli.uarm.UArm.arc">
+<code class="sig-name descname">arc</code><span class="sig-paren">(</span><em class="sig-param">clockwise=True</em>, <em class="sig-param">**kw</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.arc" title="Permalink naar deze definitie">¶</a></dt>
+<dd><p>Beweeg in een boog.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>float</em>) – Doelpositie x</p></li>
+<li><p><strong>y</strong> (<em>float</em>) – Doelpositie y</p></li>
+<li><p><strong>r</strong> (<em>float</em>) – De hoek in graden</p></li>
+<li><p><strong>clockwise</strong> (<em>bool</em>) – True = met de klok mee (default)
+False = tegen de kok in</p></li>
+<li><p><strong>x</strong> – Doelpositie x</p></li>
+<li><p><strong>y</strong> – Doelpositie y</p></li>
+<li><p><strong>i</strong> (<em>float</em>) – x offset vanaf beginpunt naar moddelpint cirkel</p></li>
+<li><p><strong>j</strong> (<em>float</em>) – y offset vanaf beginpunt naar moddelpint cirkel</p></li>
+<li><p><strong>clockwise</strong> – True = met de klok mee (default)
+False = tegen de kok in</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Een future voor het resultaat.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>GCodeResult</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
 <dt id="asyncgcodecli.uarm.UArm.execute">
 <em class="property">static </em><code class="sig-name descname">execute</code><span class="sig-paren">(</span><em class="sig-param">port: any</em>, <em class="sig-param">script</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.execute" title="Permalink naar deze definitie">¶</a></dt>
 <dd><p>Voer script uit op UArm.</p>
-<blockquote>
-<div><dl class="simple">
-<dt>port<span class="classifier">str of list</span></dt><dd><dl class="simple">
-<dt>bijvoorbeeld:</dt><dd><p>‘/dev/cu.usbmodem14101’ of
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>port</strong> (<em>str of list</em>) – <dl class="simple">
+<dt>bijvoorbeeld::</dt><dd><p>’/dev/cu.usbmodem14101’
 [‘/dev/cu.usbmodem14101’, ‘/dev/cu.usbmodem14201’]</p>
 </dd>
 </dl>
-</dd>
-<dt>script<span class="classifier">script</span></dt><dd><p>Het uit te voeren script.</p>
+</p></li>
+<li><p><strong>script</strong> (<em>script</em>) – Het uit te voeren script.</p></li>
+</ul>
 </dd>
 </dl>
-</div></blockquote>
+<p class="rubric">Examples</p>
 <p>Voorbeeld met 1 robotarm:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span> <span class="nf">do_move_arm</span><span class="p">(</span><span class="n">uarm</span><span class="p">:</span> <span class="n">UArm</span><span class="p">):</span>
     <span class="n">uarm</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="mi">150</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">150</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
@@ -78,23 +109,45 @@
 <dt id="asyncgcodecli.uarm.UArm.move">
 <code class="sig-name descname">move</code><span class="sig-paren">(</span><em class="sig-param">x: float</em>, <em class="sig-param">y: float</em>, <em class="sig-param">z: float</em>, <em class="sig-param">speed: float = 100</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.move" title="Permalink naar deze definitie">¶</a></dt>
 <dd><p>Beweeg robotarm.</p>
-<p>Beweeg de robot arm naar het punt (x, y, z) met de
+<p>Beweeg de robotarm naar het punt (x, y, z) met de
 aangegeven snelheid.</p>
-<blockquote>
-<div><dl class="simple">
-<dt>x<span class="classifier">float</span></dt><dd><p>x-doelpositie</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>float</em>) – x-doelpositie</p></li>
+<li><p><strong>y</strong> (<em>float</em>) – y-doelpositie</p></li>
+<li><p><strong>z</strong> (<em>float</em>) – z-doelpositie</p></li>
+<li><p><strong>speed</strong> (<em>float</em>) – De beweegsnelheid. 200 is het maximum.</p></li>
+</ul>
 </dd>
-<dt>y<span class="classifier">float</span></dt><dd><p>y-doelpositie</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Een future voor het resultaat.</p>
 </dd>
-<dt>z<span class="classifier">float</span></dt><dd><p>z-doelpositie</p>
-</dd>
-<dt>speed:</dt><dd><p>float De beweegsnelheid. 200 is het maximum.</p>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>GCodeResult</p>
 </dd>
 </dl>
-</div></blockquote>
-<blockquote>
-<div><p>GCodeResult: Een future voor het resultaat.</p>
-</div></blockquote>
+</dd></dl>
+
+<dl class="method">
+<dt id="asyncgcodecli.uarm.UArm.set_buzzer">
+<code class="sig-name descname">set_buzzer</code><span class="sig-paren">(</span><em class="sig-param">freq: float</em>, <em class="sig-param">time: float</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.set_buzzer" title="Permalink naar deze definitie">¶</a></dt>
+<dd><p>Maak geluid.</p>
+<p>Maak geluid met de zoemer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>freq</strong> (<em>float</em>) – De frequentie</p></li>
+<li><p><strong>time</strong> (<em>float</em>) – tijd in milliseconden</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Een future voor het resultaat.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>GCodeResult</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="method">
@@ -102,36 +155,40 @@ aangegeven snelheid.</p>
 <code class="sig-name descname">set_mode</code><span class="sig-paren">(</span><em class="sig-param">mode: int</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.set_mode" title="Permalink naar deze definitie">¶</a></dt>
 <dd><p>Stel mode in.</p>
 <p>Stel de robotarm in op de gewenste mode</p>
-<blockquote>
-<div><p>mode : int</p>
-<blockquote>
-<div><p>0: Standard Suction mode
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>mode</strong> (<em>int</em>) – 0: Standard Suction mode
 1: Laser mode
 2: 3D printing mode
 3: Universal holder mode
 4: Pro Suction mode
 5: Plus Suction mode
 6: Touch Pen mode</p>
-</div></blockquote>
-</div></blockquote>
-<blockquote>
-<div><p>GCodeResult: Een future voor het resultaat.</p>
-</div></blockquote>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Een future voor het resultaat.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>GCodeResult</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="method">
 <dt id="asyncgcodecli.uarm.UArm.set_pump">
 <code class="sig-name descname">set_pump</code><span class="sig-paren">(</span><em class="sig-param">on: bool</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.set_pump" title="Permalink naar deze definitie">¶</a></dt>
 <dd><p>Zet de pomp aan of uit.</p>
-<blockquote>
-<div><dl class="simple">
-<dt>on<span class="classifier">bool</span></dt><dd><p>True voor aan, False voor uit</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>on</strong> (<em>bool</em>) – True voor aan, False voor uit</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Een future voor het resultaat.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>GCodeResult</p>
 </dd>
 </dl>
-</div></blockquote>
-<blockquote>
-<div><p>GCodeResult: Een future voor het resultaat.</p>
-</div></blockquote>
 </dd></dl>
 
 <dl class="method">
@@ -139,15 +196,17 @@ aangegeven snelheid.</p>
 <code class="sig-name descname">set_wrist</code><span class="sig-paren">(</span><em class="sig-param">angle: float</em><span class="sig-paren">)</span><a class="headerlink" href="#asyncgcodecli.uarm.UArm.set_wrist" title="Permalink naar deze definitie">¶</a></dt>
 <dd><p>Draai de pompeenheid.</p>
 <p>Draai de pompeenheid op de robotarm naar de opgegeven hoek.</p>
-<blockquote>
-<div><dl class="simple">
-<dt>angle<span class="classifier">float</span></dt><dd><p>De gewenste draaihoek</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>angle</strong> (<em>float</em>) – De gewenste draaihoek</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Een future voor het resultaat.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>GCodeResult</p>
 </dd>
 </dl>
-</div></blockquote>
-<blockquote>
-<div><p>GCodeResult: Een future voor het resultaat.</p>
-</div></blockquote>
 </dd></dl>
 
 <dl class="method">
@@ -157,17 +216,23 @@ aangegeven snelheid.</p>
 <p>Wacht eerst tot de robotarm alle opdrachten in de wachtrij heeft
 uitgevoerd en klaar is met bewegen. Wacht daarna nog een
 beetje extra.</p>
-<blockquote>
-<div><p>time : float De extra wachtijd in seconden</p>
-</div></blockquote>
-<blockquote>
-<div><p>coroutine: Deze functie geeft een coroutine als resultaat. Daarom
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>time</strong> (<em>float De extra wachtijd in seconden</em>) – </p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Deze functie geeft een coroutine als resultaat. Daarom
 moet je await gebruiken.</p>
-<p>Voorbeeld:</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>coroutine</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<p>Wacht 1 seconde:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">await</span> <span class="n">uarm</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 </pre></div>
 </div>
-</div></blockquote>
 </dd></dl>
 
 </dd></dl>
