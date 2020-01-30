@@ -34,4 +34,4 @@ async def move_script(uarms: UArm):
 # Gebruik de bovenstaaande functie om de
 # de robotarm die verbonden is met de port /dev/cu.usbmodem14101
 # te besturen.
-UArm.execute(['/dev/cu.usbmodem14101'], move_script)
+UArm.execute_on_robotarm('/dev/cu.usbmodem14101', move_script)

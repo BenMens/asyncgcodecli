@@ -250,7 +250,7 @@ class UArm(GenericDriver):
         await asyncio.sleep(time)
 
     @staticmethod
-    def execute_on_printer(port: any, script):
+    def execute_on_robotarm(port: any, script):
         """
         Voer een script uit op de UArm.
 
@@ -269,7 +269,7 @@ class UArm(GenericDriver):
             async def do_move_arm(uarm: UArm):
                 uarm.move(150, 0, 150, 200)
 
-            UArm.send('/dev/cu.usbmodem14101', do_move_arm)
+            UArm.execute_on_robotarm('/dev/cu.usbmodem14101', do_move_arm)
 
         """
         async def do_execute():
@@ -284,8 +284,10 @@ class UArm(GenericDriver):
             uarm.stop()
             await asyncio.sleep(2)
 
+        asyncio.run(do_execute())
+
     @staticmethod
-    def execute_on_printers(port: list, script):
+    def execute_on_robotarms(port: list, script):
         """
         Voer een script uit op meerdere UArms.
 
@@ -305,7 +307,7 @@ class UArm(GenericDriver):
                 for arm in arms:
                     uarm.move(150, 0, 150, 200)
 
-            UArm.send(
+            UArm.execute_on_robotarms(
                 ['/dev/cu.usbmodem14101', '/dev/cu.usbmodem14201'],
                 do_move_arm)
         """

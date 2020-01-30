@@ -47,5 +47,5 @@ async def move_script(uarm: UArm):
 
 # Execute move_script on the UArm that is
 # connected to /dev/cu.usbmodem14101
-UArm.execute('/dev/cu.usbmodem14101', move_script)
+UArm.execute_on_robotarm('/dev/cu.usbmodem14101', move_script)
 ```
