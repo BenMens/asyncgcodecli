@@ -3,11 +3,12 @@
 import serial
 import threading
 import time
-import queue
 import re
 import asyncio
+import asyncio.events
 
 TRACE = 1
+
 
 __all__ = [
     'GCodeDeviceEvent',
@@ -16,6 +17,15 @@ __all__ = [
     'GenericDriver',
     'Plotter'
 ]
+
+
+def _log(string, level=TRACE):
+    print(string)
+
+
+class TimeoutException(Exception):
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
 
 
 class GCodeDeviceEvent:
@@ -32,7 +42,7 @@ class GCodeDeviceConnectEvent(GCodeDeviceEvent):
     def __init__(self, connected, *args, **kw):
         """Initialize GCodeDeviceConnectEvent."""
         super().__init__(*args, **kw)
-        self.__conected = connected
+        self.connected = connected
 
 
 class CommandProcessedEvent(GCodeDeviceEvent):
@@ -146,26 +156,29 @@ class GCodeWaitCommand(GCodeCommand):
 
 
 class SerialReceiveThread(threading.Thread):
-    def __init__(self, port, *args, **kw):
+    def __init__(self, port, loop, *args, **kw):
         super().__init__(*args, **kw)
-        self.event_queue = queue.Queue()
+        self.event_queue = asyncio.Queue()
         self.port = port
         self.stop = False
+        self._loop = loop
         self.__serial = serial.Serial(None, baudrate=115200, timeout=1)
         self.setDaemon(1)
 
     def post_event(self, event):
-        self.event_queue.put(event)
+        async def do_post_event(event):
+            await self.event_queue.put(event)
+
+        asyncio.run_coroutine_threadsafe(do_post_event(event), self._loop)
 
     def write(self, gcode):
         self.__serial.write(gcode)
 
     def run(self):
-        while (not self.stop):
+        print('Connecting to {} '.format(self.port), end='', flush=True)
 
-            print('Connecting to {} '.format(self.port), end='', flush=True)
-
-            while (not self.__serial.is_open):
+        if not self.__serial.is_open:
+            for _ in range(0, 5):
                 if (self.stop):
                     break
                 try:
@@ -174,31 +187,36 @@ class SerialReceiveThread(threading.Thread):
                     self.post_event(GCodeDeviceConnectEvent(True))
                     print('')
                     print('Connected')
+                    break
 
                 except serial.SerialException:
                     print('.', end='', flush=True)
                     time.sleep(1)
 
-            response = f''
+        if (not self.__serial.is_open):
+            self.post_event(GCodeDeviceConnectEvent(False))
+            print(' timeout')
 
-            while(self.__serial.is_open):
-                if (self.stop):
-                    break
-                try:
-                    b = self.__serial.read(size=1)
-                    if b:
-                        if b == b'\n' or b == b'\r':
-                            if (len(b) > 0):
-                                self.post_event(
-                                    ResponseReveivedEvent(response))
-                                response = f''
-                        else:
-                            response += b.decode("utf-8")
+        response = f''
 
-                except serial.SerialException:
-                    self.post_event(GCodeDeviceConnectEvent(False))
-                    self.__serial.close()
-                    print('Connection lost!')
+        while(self.__serial.is_open):
+            if (self.stop):
+                break
+            try:
+                b = self.__serial.read(size=1)
+                if b:
+                    if b == b'\n' or b == b'\r':
+                        if (len(b) > 0):
+                            self.post_event(
+                                ResponseReveivedEvent(response))
+                            response = f''
+                    else:
+                        response += b.decode("utf-8")
+
+            except serial.SerialException:
+                self.post_event(GCodeDeviceConnectEvent(False))
+                self.__serial.close()
+                print('Connection lost!')
 
         if (self.__serial.is_open):
             self.__serial.close()
@@ -240,31 +258,33 @@ class GenericDriver:
 
     async def __process_serial_events(self):
         while True:
-            await asyncio.sleep(0.01)
             while self.__serial is not None:
-                try:
-                    event = self.__serial.event_queue.get_nowait()
-                    if isinstance(event, ResponseReveivedEvent):
-                        self._process_response(event.response)
+                event = await self.__serial.event_queue.get()
+                if isinstance(event, ResponseReveivedEvent):
+                    self._process_response(event.response)
 
-                    self.__check_queue_empty()
+                if isinstance(event, GCodeDeviceConnectEvent) and \
+                        event.connected is False:
+                    self._ready_future.set_exception(TimeoutException())
+                    self.stop()
 
-                    self._forward_event(event)
+                self.__check_queue_empty()
 
-                except queue.Empty:
-                    break
+                self._forward_event(event)
 
     def start(self):
-        self.__serial = SerialReceiveThread(self.__port)
-        self.__serial.start()
+        self.__serial = SerialReceiveThread(
+            self.__port,
+            asyncio.events.get_running_loop())
 
         self.__process_serial_events_task = asyncio.create_task(
             self.__process_serial_events())
 
+        self.__serial.start()
+
     def stop(self):
         if self.__serial is not None:
             self.__serial.stop = True
-            self.__serial = None
 
         if self.__process_serial_events_task is not None:
             self.__process_serial_events_task.cancel()
@@ -289,7 +309,7 @@ class GenericDriver:
             self.__serial.write(command)
             self.__send_limit -= command_len
             head.send = True
-            self._log(TRACE, command.decode("utf-8"))
+            _log(command.decode("utf-8"))
 
             if not head.expect_ok:
                 self._confirm_command({'result': 'ok', 'error_code': 0})
@@ -324,9 +344,6 @@ class GenericDriver:
     def ready(self):
         return self._ready_future
 
-    def _log(self, level, string):
-        print(string)
-
     def _queue_get_status(self):
         self.queue_command(GCodeGenericCommand('?'))
 
@@ -339,7 +356,7 @@ class GenericDriver:
             await asyncio.sleep(0.1)
 
     def _process_response(self, response):
-        self._log(TRACE, response)
+        _log(response)
 
         m = re.compile(r'\<?(.*)\>').match(response)
         if m is not None:
@@ -397,16 +414,17 @@ class Plotter(GenericDriver):
         return self.queue_command(GCodeHomeCommand())
 
     @staticmethod
-    def execute(port, func):
-        async def do_execute():
+    def execute_on_plotter(port, func):
+        async def do_execute_on_plotter():
             plotter = Plotter(port)
             plotter.start()
-            await plotter.ready()
-            await func(plotter)
-            await plotter.queue_empty()
-            plotter.stop()
-            await asyncio.sleep(2)
+            try:
+                await plotter.ready()
+                await func(plotter)
+                await plotter.queue_empty()
+                plotter.stop()
+                await asyncio.sleep(2)
+            except TimeoutException:
+                _log("Script not printed")
 
-        asyncio.run(do_execute())
-
-
+        asyncio.run(do_execute_on_plotter())
