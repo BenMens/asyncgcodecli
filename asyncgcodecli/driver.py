@@ -70,6 +70,7 @@ class GCodeResult(asyncio.Future):
         resultaat = await resultaat_als_gcode_result
 
     Voorbeeld 2 (korte notatie)::
+    def post_event(self, event):
 
         resultaat = await uarm.move(150, 0, 150, 200)
 
@@ -161,6 +162,9 @@ class SerialReceiveThread(threading.Thread):
 
     def post_event(self, event):
         async def do_post_event(event):
+            if isinstance(event, ResponseReveivedEvent):
+                logger.log(logger.TRACE, "received: {}", event.response)
+
             await self.event_queue.put(event)
 
         asyncio.run_coroutine_threadsafe(do_post_event(event), self._loop)
@@ -195,7 +199,7 @@ class SerialReceiveThread(threading.Thread):
                 'Could not connect to device "{}". Timeout occured.',
                 self.port)
 
-        response = f''
+        response = ''
 
         while(self.__serial.is_open):
             if (self.stop):
@@ -205,10 +209,9 @@ class SerialReceiveThread(threading.Thread):
                 if b:
                     if b == b'\n' or b == b'\r'or b == b'\l':
                         if (len(response) > 0):
-                            logger.log(logger.TRACE, "received: {}", response)
                             self.post_event(
                                 ResponseReveivedEvent(response))
-                            response = f''
+                            response = ''
                     else:
                         response += b.decode("utf-8")
 
@@ -361,7 +364,7 @@ class GenericDriver:
         if (response == "ok"):
             self._confirm_command({'result': 'ok', 'error_code': 0})
 
-        if response == f"Grbl 1.1h ['$' for help]":
+        if response == "Grbl 1.1h ['$' for help]":
             settings_command = GCodeGenericCommand('$$')
             self.queue_command(settings_command)
 
@@ -385,6 +388,7 @@ class GenericDriver:
         if m is not None:
             # ToDo set error
             self._confirm_command({'result': 'error', 'error_code': m[1]})
+
 
     def _process_status(self, status):
         components = status.split('|')

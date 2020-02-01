@@ -39,13 +39,13 @@ class UArm(GenericDriver):
     def _process_response(self, response):
         super()._process_response(response)
 
-        if response == f"@6 N0 V1":
+        if response == "@6 N0 V1":
             self.limit_switch_on = True
 
-        if response == f"@6 N0 V0":
+        if response == "@6 N0 V0":
             self.limit_switch_on = False
 
-        if response == f"@1":
+        if response == "@1":
             settings_command = GCodeGenericCommand('$$')
             self.queue_command(settings_command)
 
