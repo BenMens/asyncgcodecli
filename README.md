@@ -8,13 +8,13 @@ UArm Swift Pro is supported. This library uses asyncio.
 ```bash
 pip3 install pyserial
 
-pip3 install git+https://github.com/BenMens/asyncgcodecli@release
+pip3 install git+https://github.com/BenMens/asyncgcodecli@latest
 ```
 
 ## Update to latest version ##
 
 ```bash
-pip3 install --upgrade  git+https://github.com/BenMens/asyncgcodecli@release
+pip3 install --upgrade  git+https://github.com/BenMens/asyncgcodecli@latest
 ```
 
 ## Documentation ##
