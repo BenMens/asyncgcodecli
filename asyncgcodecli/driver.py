@@ -361,7 +361,7 @@ class GenericDriver:
         if (response == "ok"):
             self._confirm_command({'result': 'ok', 'error_code': 0})
 
-        if response == f"Grbl 1.1h ['$' for help]":
+        if response == "Grbl 1.1h ['$' for help]":
             settings_command = GCodeGenericCommand('$$')
             self.queue_command(settings_command)
 
