@@ -10,5 +10,6 @@ sys.path.insert(
 
 from asyncgcodecli import Plotter, GCodeResult
 from asyncgcodecli import UArm
+import asyncgcodecli.logger as logger
 
 __all__ = ['Plotter', 'UArm', 'GCodeResult']

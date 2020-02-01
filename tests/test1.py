@@ -23,6 +23,10 @@ async def move_script(uarm: UArm):
         uarm.move(150, 0, 10, 200)
         uarm.move(350, 0, 10, 200)
 
+    for _ in range(1, 5):
+        uarm.move(150, -200, 150, 200)
+        uarm.move(150, 200, 150, 200)
+
     # zorg voor een mooie landing
     uarm.move(150, 0, 20, 200)
     uarm.set_pump(False)

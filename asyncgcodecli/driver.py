@@ -6,9 +6,7 @@ import time
 import re
 import asyncio
 import asyncio.events
-
-TRACE = 1
-
+import asyncgcodecli.logger as logger
 
 __all__ = [
     'GCodeDeviceEvent',
@@ -17,10 +15,6 @@ __all__ = [
     'GenericDriver',
     'Plotter'
 ]
-
-
-def _log(string, level=TRACE):
-    print(string)
 
 
 class TimeoutException(Exception):
@@ -173,9 +167,10 @@ class SerialReceiveThread(threading.Thread):
 
     def write(self, gcode):
         self.__serial.write(gcode)
+        logger.log(logger.TRACE, "transmitted: {}", gcode.decode("utf-8"))
 
     def run(self):
-        print('Connecting to {} '.format(self.port), end='', flush=True)
+        logger.log(logger.INFO, 'Connecting to {} ', (self.port), end='')
 
         if not self.__serial.is_open:
             for _ in range(0, 5):
@@ -185,17 +180,20 @@ class SerialReceiveThread(threading.Thread):
                     self.__serial.port = self.port
                     self.__serial.open()
                     self.post_event(GCodeDeviceConnectEvent(True))
-                    print('')
-                    print('Connected')
+                    logger.append(logger.INFO, ' Connected.')
                     break
 
                 except serial.SerialException:
-                    print('.', end='', flush=True)
+                    logger.append(logger.INFO, '.', end='')
                     time.sleep(1)
 
         if (not self.__serial.is_open):
             self.post_event(GCodeDeviceConnectEvent(False))
-            print(' timeout')
+            logger.append(logger.INFO, ' Timeout.')
+            logger.log(
+                logger.FATAL,
+                'Could not connect to device "{}". Timeout occured.',
+                self.port)
 
         response = f''
 
@@ -205,8 +203,9 @@ class SerialReceiveThread(threading.Thread):
             try:
                 b = self.__serial.read(size=1)
                 if b:
-                    if b == b'\n' or b == b'\r':
-                        if (len(b) > 0):
+                    if b == b'\n' or b == b'\r'or b == b'\l':
+                        if (len(response) > 0):
+                            logger.log(logger.TRACE, "received: {}", response)
                             self.post_event(
                                 ResponseReveivedEvent(response))
                             response = f''
@@ -221,7 +220,7 @@ class SerialReceiveThread(threading.Thread):
         if (self.__serial.is_open):
             self.__serial.close()
 
-        print('thread stopped')
+        logger.log(logger.TRACE, "SerialReceiveThread stopped")
 
 
 class GenericDriver:
@@ -309,7 +308,6 @@ class GenericDriver:
             self.__serial.write(command)
             self.__send_limit -= command_len
             head.send = True
-            _log(command.decode("utf-8"))
 
             if not head.expect_ok:
                 self._confirm_command({'result': 'ok', 'error_code': 0})
@@ -356,8 +354,6 @@ class GenericDriver:
             await asyncio.sleep(0.1)
 
     def _process_response(self, response):
-        _log(response)
-
         m = re.compile(r'\<?(.*)\>').match(response)
         if m is not None:
             self._process_status(m[1])
@@ -414,17 +410,26 @@ class Plotter(GenericDriver):
         return self.queue_command(GCodeHomeCommand())
 
     @staticmethod
-    def execute_on_plotter(port, func):
+    def execute_on_plotter(port, script):
         async def do_execute_on_plotter():
-            plotter = Plotter(port)
-            plotter.start()
             try:
+                plotter = Plotter(port)
+                plotter.start()
                 await plotter.ready()
-                await func(plotter)
+                logger.log(
+                    logger.INFO,
+                    "Executing script")
+                await script(plotter)
+                logger.log(
+                    logger.INFO,
+                    "Script executed successfully")
                 await plotter.queue_empty()
                 plotter.stop()
                 await asyncio.sleep(2)
             except TimeoutException:
-                _log("Script not printed")
+                logger.log(
+                    logger.FATAL,
+                    "Script not printed because of printer timeout")
+
 
         asyncio.run(do_execute_on_plotter())

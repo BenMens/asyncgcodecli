@@ -1,14 +1,17 @@
 """Driver for the UArm Swift Pro."""
 
+
 __all__ = [
     'UArm'
 ]
 
 import asyncio
+import asyncgcodecli.logger as logger
 from asyncgcodecli.driver import \
     GenericDriver, \
     GCodeGenericCommand, \
-    GCodeMoveCommand
+    GCodeMoveCommand, \
+    TimeoutException
 
 
 class UArm(GenericDriver):
@@ -273,16 +276,27 @@ class UArm(GenericDriver):
 
         """
         async def do_execute():
-            uarm = UArm(port)
+            try:
+                uarm = UArm(port)
 
-            uarm.start()
-            await uarm.ready()
+                uarm.start()
+                await uarm.ready()
 
-            await script(uarm)
+                logger.log(
+                    logger.INFO,
+                    "Executing script")
+                await script(uarm)
+                logger.log(
+                    logger.INFO,
+                    "Script executed successfully")
 
-            await uarm.queue_empty()
-            uarm.stop()
-            await asyncio.sleep(2)
+                await uarm.queue_empty()
+                uarm.stop()
+                await asyncio.sleep(2)
+            except TimeoutException:
+                logger.log(
+                    logger.FATAL,
+                    "Script not printed because of printer timeout")
 
         asyncio.run(do_execute())
 
@@ -312,17 +326,28 @@ class UArm(GenericDriver):
                 do_move_arm)
         """
         async def do_execute():
-            uarms = [UArm(p) for p in port]
+            try:
+                uarms = [UArm(p) for p in port]
 
-            for uarm in uarms:
-                uarm.start()
-                await uarm.ready()
+                for uarm in uarms:
+                    uarm.start()
+                    await uarm.ready()
 
-            await script(uarms)
+                logger.log(
+                    logger.INFO,
+                    "Executing script")
+                await script(uarms)
+                logger.log(
+                    logger.INFO,
+                    "Script executed successfully")
 
-            for uarm in uarms:
-                await uarm.queue_empty()
-                uarm.stop()
-                await asyncio.sleep(2)
+                for uarm in uarms:
+                    await uarm.queue_empty()
+                    uarm.stop()
+                    await asyncio.sleep(2)
+            except TimeoutException:
+                logger.log(
+                    logger.FATAL,
+                    "Script not printed because of printer timeout")
 
         asyncio.run(do_execute())
