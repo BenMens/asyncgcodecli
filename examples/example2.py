@@ -8,12 +8,32 @@ async def move_script(uarms: UArm):
 
     for uarm in uarms:
         uarm.set_mode(0)
-        uarm.move(150, 0, 150, 200)
+
+    for _ in range(1, 5):
+        for uarm in uarms:
+            await uarm.sleep(0)
+
+        uarms[0].move(150, -200, 150, 200)
+        uarms[1].move(150,  200, 150, 200)
+
+        for uarm in uarms:
+            await uarm.sleep(0)
+
+        uarms[0].move(150,   0, 150, 200)
+        uarms[1].move(150,   0, 150, 200)
+
+    for uarm in uarms:
+        await uarm.sleep(0)
 
     for uarm in uarms:
         # make a nice landing
         uarm.move(150, 0, 20, 200)
-        await uarm.sleep(1)
+
+    for uarm in uarms:
+        await uarm.sleep(0)
+
+    for uarm in uarms:
+        # make a nice landing
         uarm.move(150, 0, 0, 10)
 
 # Execute move_script on the UArm that is

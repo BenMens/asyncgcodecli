@@ -195,7 +195,7 @@ class SerialReceiveThread(threading.Thread):
                 'Could not connect to device "{}". Timeout occured.',
                 self.port)
 
-        response = f''
+        response = ''
 
         while(self.__serial.is_open):
             if (self.stop):
@@ -208,7 +208,7 @@ class SerialReceiveThread(threading.Thread):
                             logger.log(logger.TRACE, "received: {}", response)
                             self.post_event(
                                 ResponseReveivedEvent(response))
-                            response = f''
+                            response = ''
                     else:
                         response += b.decode("utf-8")
 
