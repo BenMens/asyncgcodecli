@@ -6,7 +6,6 @@ from context import UArm
 async def move_script(uarm: UArm):
     """Move robot arm script."""
 
-    """Beweeg de robotarm in een cool patroon."""
     # set de robot arm op mode 0 (pomp)
     uarm.set_mode(0)
 
