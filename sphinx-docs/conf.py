@@ -32,7 +32,8 @@ release = '0.0.1'
 # ones.
 extensions = [
     'sphinx.ext.napoleon',
-    'sphinx.ext.githubpages'
+    'sphinx.ext.githubpages',
+    'sphinx.ext.autosummary'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -62,3 +63,12 @@ html_theme = 'alabaster'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+latex_elements = {
+  'extraclassoptions': 'openany,oneside'
+}
+
+autodoc_member_order = 'bysource'
+
+autodoc_default_flags = ['members']
+autosummary_generate = True
