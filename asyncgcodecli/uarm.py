@@ -249,7 +249,7 @@ class UArm(GenericDriver):
 
             await uarm.sleep(1)
         """
-        await self.queue_empty()
+        await self.wait_queue_empty()
         await asyncio.sleep(time)
 
     @staticmethod
@@ -290,7 +290,7 @@ class UArm(GenericDriver):
                     logger.INFO,
                     "Script executed successfully")
 
-                await uarm.queue_empty()
+                await uarm.wait_queue_empty()
                 uarm.stop()
                 await asyncio.sleep(2)
             except TimeoutException:
@@ -342,7 +342,7 @@ class UArm(GenericDriver):
                     "Script executed successfully")
 
                 for uarm in uarms:
-                    await uarm.queue_empty()
+                    await uarm.wait_queue_empty()
                     uarm.stop()
                     await asyncio.sleep(2)
             except TimeoutException:

@@ -76,7 +76,10 @@ def log(level, msg, format=None, end='\n'):
         layout.update(__default_layout)
         if level in __layout:
             layout.update(__layout[level])
-        msg = msg.format(format)
+        if isinstance(format, tuple):
+            msg = msg.format(*format)
+        else:
+            msg = msg.format(format)
         msg = layout['format_string'].format(msg=msg, **layout)
 
         print(msg, end=end, flush=True)

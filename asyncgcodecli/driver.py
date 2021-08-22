@@ -12,8 +12,8 @@ __all__ = [
     'GCodeDeviceEvent',
     'GCodeDeviceConnectEvent',
     'GCodeGenericCommand',
+    'ResponseReveivedEvent',
     'GenericDriver',
-    'Plotter'
 ]
 
 
@@ -37,6 +37,18 @@ class GCodeDeviceConnectEvent(GCodeDeviceEvent):
         """Initialize GCodeDeviceConnectEvent."""
         super().__init__(*args, **kw)
         self.connected = connected
+
+
+class CommandQueuedEvent(GCodeDeviceEvent):
+    def __init__(self, command, *args, **kw):
+        super().__init__(*args, **kw)
+        self.command = command
+
+
+class CommandStartedEvent(GCodeDeviceEvent):
+    def __init__(self, command, *args, **kw):
+        super().__init__(*args, **kw)
+        self.command = command
 
 
 class CommandProcessedEvent(GCodeDeviceEvent):
@@ -81,12 +93,16 @@ class GCodeResult(asyncio.Future):
 
 
 class GCodeCommand:
+    nextId = 0
+
     def __init__(self, expect_ok=True, *args, **kw):
         super().__init__(*args, **kw)
         self.send = False
         self.confirmed = False
         self.gcode_result = GCodeResult()
         self.expect_ok = expect_ok
+        self.id = GCodeCommand.nextId
+        GCodeCommand.nextId += 1
 
     def command(self):
         return b''
@@ -95,6 +111,12 @@ class GCodeCommand:
 class GCodeGenericCommand(GCodeCommand):
     def __init__(self, gcode, *args, **kw):
         super().__init__(*args, **kw)
+
+        # remove comment
+        gcode = re.sub(r';.*', '', gcode)
+        gcode = re.sub(r'\(.*\)', '', gcode)
+        gcode = gcode.replace('\n', '')
+
         self.gcode = str.encode(gcode) + b'\r'
 
     def command(self):
@@ -174,40 +196,44 @@ class SerialReceiveThread(threading.Thread):
         logger.log(logger.TRACE, "transmitted: {}", gcode.decode("utf-8"))
 
     def run(self):
-        logger.log(logger.INFO, 'Connecting to {} ', (self.port), end='')
+        logger.log(logger.INFO, 'Connecting to {} ', (self.port))
 
         if not self.__serial.is_open:
-            for _ in range(0, 5):
+            for i in range(0, 5):
                 if (self.stop):
                     break
                 try:
+                    if i > 0:
+                        logger.log(
+                            logger.INFO, 'Connecting to {} retry {}',
+                            (self.port, i))
                     self.__serial.port = self.port
                     self.__serial.open()
                     self.post_event(GCodeDeviceConnectEvent(True))
-                    logger.append(logger.INFO, ' Connected.')
+                    logger.log(logger.INFO, 'Connected.')
                     break
 
                 except serial.SerialException:
-                    logger.append(logger.INFO, '.', end='')
                     time.sleep(1)
 
-        if (not self.__serial.is_open):
+        if not self.__serial.is_open and not self.stop:
             self.post_event(GCodeDeviceConnectEvent(False))
-            logger.append(logger.INFO, ' Timeout.')
+            logger.log(logger.INFO, 'Timeout.')
             logger.log(
                 logger.FATAL,
                 'Could not connect to device "{}". Timeout occured.',
-                self.port)
+                (self.port))
 
         response = ''
 
         while(self.__serial.is_open):
             if (self.stop):
                 break
+
             try:
                 b = self.__serial.read(size=1)
                 if b:
-                    if b == b'\n' or b == b'\r'or b == b'\l':
+                    if b == b'\n' or b == b'\r':
                         if (len(response) > 0):
                             self.post_event(
                                 ResponseReveivedEvent(response))
@@ -223,12 +249,16 @@ class SerialReceiveThread(threading.Thread):
         if (self.__serial.is_open):
             self.__serial.close()
 
-        logger.log(logger.TRACE, "SerialReceiveThread stopped")
+        logger.log(
+            logger.TRACE,
+            "SerialReceiveThread for {} stopped",
+            self.port)
 
 
 class GenericDriver:
     def __init__(
-            self, port,
+            self,
+            port,
             async_event_queue=None,
             advanced_flow_control=False,
             *args,
@@ -250,6 +280,7 @@ class GenericDriver:
         self.__status = 'Unknown'
         self._ready_future = asyncio.Future()
         self.settings = {}
+        self.__check_queue_empty()
 
     def _flush_queue(self):
         self.__gcode_queue = self.__gcode_queue[: self.__processed_tail]
@@ -322,21 +353,34 @@ class GenericDriver:
         self.__processed_tail += 1
         self._forward_event(CommandProcessedEvent(head))
         self.__send_limit += len(head.command())
+        if self.__processed_tail < len(self.__gcode_queue):
+            new_head = self.__gcode_queue[self.__processed_tail]
+            self._forward_event(CommandStartedEvent(new_head))
         self.__process_queue()
 
     def queue_command(self, command):
         self.__gcode_queue.append(command)
+        self._forward_event(CommandQueuedEvent(command))
+
+        if self.__processed_tail == len(self.__gcode_queue) - 1:
+            head = self.__gcode_queue[self.__processed_tail]
+            self._forward_event(CommandStartedEvent(head))
+
         self.__process_queue()
         return command.gcode_result
 
     def __check_queue_empty(self):
+        """
+        Check if all queued commands are processed and resolve
+        waiting Futures
+        """
         if self.__processed_tail == len(self.__gcode_queue):
             for f in self.__queue_empty_futures:
                 f.set_result(True)
 
             self.__queue_empty_futures.clear()
 
-    def queue_empty(self):
+    def wait_queue_empty(self):
         future = asyncio.Future()
         self.__queue_empty_futures.append(future)
         self.__check_queue_empty()
@@ -365,13 +409,20 @@ class GenericDriver:
             self._confirm_command({'result': 'ok', 'error_code': 0})
 
         if response == "Grbl 1.1h ['$' for help]":
+            self._reset()
+
             settings_command = GCodeGenericCommand('$$')
             self.queue_command(settings_command)
 
             async def wait_for_settings(settings_command):
                 await settings_command.gcode_result
 
-                self._ready_future.set_result(True)
+                if not self._ready_future.done():
+                    self._ready_future.set_result(True)
+                else:
+                    # Todo deal with case of second setting responses
+                    # for example after pressing the plotter reset button
+                    pass
 
             asyncio.create_task(wait_for_settings(settings_command))
 
@@ -389,51 +440,6 @@ class GenericDriver:
             # ToDo set error
             self._confirm_command({'result': 'error', 'error_code': m[1]})
 
-
     def _process_status(self, status):
         components = status.split('|')
         self.__status = components[0]
-
-
-class Plotter(GenericDriver):
-    def __init__(self, port, *args, **kw):
-        super().__init__(port, *args, **kw)
-
-    def pen_up(self):
-        self.queue_command(GCodeSetSpindleCommand(400))
-        return self.queue_command(GCodeWaitCommand(1))
-
-    def pen_down(self):
-        self.queue_command(GCodeSetSpindleCommand(900))
-        return self.queue_command(GCodeWaitCommand(1))
-
-    def move(self, x, y, speed=10000):
-        return self.queue_command(GCodeMoveCommand(x=x, y=y, speed=speed))
-
-    def home(self):
-        return self.queue_command(GCodeHomeCommand())
-
-    @staticmethod
-    def execute_on_plotter(port, script):
-        async def do_execute_on_plotter():
-            try:
-                plotter = Plotter(port)
-                plotter.start()
-                await plotter.ready()
-                logger.log(
-                    logger.INFO,
-                    "Executing script")
-                await script(plotter)
-                logger.log(
-                    logger.INFO,
-                    "Script executed successfully")
-                await plotter.queue_empty()
-                plotter.stop()
-                await asyncio.sleep(2)
-            except TimeoutException:
-                logger.log(
-                    logger.FATAL,
-                    "Script not printed because of printer timeout")
-
-
-        asyncio.run(do_execute_on_plotter())
