@@ -179,7 +179,7 @@ class SerialReceiveThread(threading.Thread):
         self.port = port
         self.stop = False
         self._loop = loop
-        self.__serial = serial.Serial(None, baudrate=115200, timeout=1)
+        self.__serial = serial.Serial(None, baudrate=115200, timeout=0.01)
         self.setDaemon(1)
 
     def post_event(self, event):
@@ -189,7 +189,10 @@ class SerialReceiveThread(threading.Thread):
 
             await self.event_queue.put(event)
 
-        asyncio.run_coroutine_threadsafe(do_post_event(event), self._loop)
+        future = asyncio.run_coroutine_threadsafe(
+                do_post_event(event),
+                self._loop)
+        return future.result()
 
     def write(self, gcode):
         self.__serial.write(gcode)
@@ -326,12 +329,17 @@ class GenericDriver:
         if not self.__serial:
             return
 
+        unconfirmed_commands_in_progress = False
         for index in range(self.__processed_tail, len(self.__gcode_queue)):
             head = self.__gcode_queue[index]
 
-            if head.send and not self.__advanced_flow_control:
+            if head.send and not head.confirmed:
+                unconfirmed_commands_in_progress = True
+
+            if (unconfirmed_commands_in_progress
+                    and not self.__advanced_flow_control):
                 break
-            if head.send and self.__advanced_flow_control:
+            if head.send:
                 continue
 
             command = head.command()
@@ -341,10 +349,14 @@ class GenericDriver:
 
             self.__serial.write(command)
             self.__send_limit -= command_len
+            print(self.__send_limit)
             head.send = True
 
             if not head.expect_ok:
                 self._confirm_command({'result': 'ok', 'error_code': 0})
+
+            if not head.confirmed:
+                unconfirmed_commands_in_progress = True
 
     def _confirm_command(self, result):
         head = self.__gcode_queue[self.__processed_tail]
@@ -353,6 +365,8 @@ class GenericDriver:
         self.__processed_tail += 1
         self._forward_event(CommandProcessedEvent(head))
         self.__send_limit += len(head.command())
+        print(self.__send_limit)
+
         if self.__processed_tail < len(self.__gcode_queue):
             new_head = self.__gcode_queue[self.__processed_tail]
             self._forward_event(CommandStartedEvent(new_head))

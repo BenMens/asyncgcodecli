@@ -18,7 +18,7 @@ from asyncgcodecli.driver import \
 
 class Plotter(GenericDriver):
     def __init__(self, port, *args, **kw):
-        super().__init__(port, *args, **kw)
+        super().__init__(port, advanced_flow_control=True, *args, **kw)
 
     def pen_up(self):
         self.queue_command(GCodeSetSpindleCommand(400))
@@ -32,6 +32,7 @@ class Plotter(GenericDriver):
         return self.queue_command(GCodeMoveCommand(x=x, y=y, speed=speed))
 
     def home(self):
+        # self.queue_command(GCodeGenericCommand("$27=2.000"))
         return self.queue_command(GCodeHomeCommand())
 
     @staticmethod
