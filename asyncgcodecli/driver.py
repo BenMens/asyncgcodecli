@@ -229,7 +229,7 @@ class SerialReceiveThread(threading.Thread):
 
         response = ''
 
-        while(self.__serial.is_open):
+        while (self.__serial.is_open):
             if (self.stop):
                 break
 

@@ -1,10 +1,4 @@
 {
-    "python.pythonPath": "/usr/local/bin/python3",
-    "python.linting.enabled": true,
-    "python.linting.pylintEnabled": false,
-    "python.linting.pydocstyleEnabled": false,
-    "python.linting.flake8Enabled": true,
-    "python.linting.pydocstyleArgs": [],
     "markdownlint.config": {
         "default": true,
         "MD003": { "style": "atx_closed" },
@@ -12,5 +6,12 @@
         "MD046": false,
         "MD044": true
     },
-    "autoDocstring.docstringFormat": "sphinx"
+    "autoDocstring.docstringFormat": "sphinx",
+    "githubPullRequests.ignoredPullRequestBranches": [
+        "master"
+    ],
+    "githubPullRequests.useReviewMode": {
+        "merged": false,
+        "closed": false
+      },
 }

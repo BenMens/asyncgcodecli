@@ -3,6 +3,11 @@
 This is a async client library to control gcode severs. Currently only
 UArm Swift Pro is supported. This library uses asyncio.
 
+## Development ##
+
+In VSCode create a new venv using _Python: Create environment_ and
+use _requirements.txt_ as dependencies.
+
 ## Installation ##
 
 ```bash
