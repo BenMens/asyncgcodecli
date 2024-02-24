@@ -13,13 +13,13 @@ use _requirements.txt_ as dependencies.
 ```bash
 pip3 install pyserial
 
-pip3 install git+https://github.com/BenMens/asyncgcodecli@release
+pip3 install https://github.com/BenMens/asyncgcodecli/releases/latest/download/asyncgcodecli-1.0.0-py3-none-any.whl  
 ```
 
 ## Update to latest version ##
 
 ```bash
-pip3 install --upgrade git+https://github.com/BenMens/asyncgcodecli@release
+pip3 install --upgrade https://github.com/BenMens/asyncgcodecli/releases/latest/download/asyncgcodecli-1.0.0-py3-none-any.whl  
 ```
 
 ## Documentation ##
