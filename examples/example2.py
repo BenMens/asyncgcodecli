@@ -1,4 +1,5 @@
 """Voorbeeld met 2 armen."""
+
 from asyncgcodecli import UArm
 
 
@@ -14,13 +15,13 @@ async def move_script(uarms: UArm):
             await uarm.sleep(0)
 
         uarms[0].move(150, -200, 150, 200)
-        uarms[1].move(150,  200, 150, 200)
+        uarms[1].move(150, 200, 150, 200)
 
         for uarm in uarms:
             await uarm.sleep(0)
 
-        uarms[0].move(150,   0, 150, 200)
-        uarms[1].move(150,   0, 150, 200)
+        uarms[0].move(150, 0, 150, 200)
+        uarms[1].move(150, 0, 150, 200)
 
     for uarm in uarms:
         await uarm.sleep(0)
@@ -36,8 +37,9 @@ async def move_script(uarms: UArm):
         # make a nice landing
         uarm.move(150, 0, 0, 10)
 
+
 # Execute move_script on the UArm that is
 # connected to /dev/cu.usbmodem14101
 UArm.execute_on_robotarms(
-    ['/dev/cu.usbmodem14101', '/dev/cu.usbmodem14201'],
-    move_script)
+    ["/dev/cu.usbmodem14101", "/dev/cu.usbmodem14201"], move_script
+)

@@ -1,4 +1,5 @@
 """Voorbeeld met 1 arm."""
+
 from asyncgcodecli import UArm
 
 
@@ -14,8 +15,7 @@ async def move_script(uarm: UArm):
     await uarm.sleep(1)
     uarm.move(150, 0, 0, 10)
 
+
 # Execute move_script on the UArm that is
 # connected to /dev/cu.usbmodem14101
-UArm.execute_on_robotarm(
-    '/dev/cu.usbmodem14101',
-    move_script)
+UArm.execute_on_robotarm("/dev/cu.usbmodem14101", move_script)

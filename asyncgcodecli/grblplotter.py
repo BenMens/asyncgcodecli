@@ -1,19 +1,17 @@
 """Driver for a GRBL based plotter."""
 
-
-__all__ = [
-    'Plotter'
-]
+__all__ = ["Plotter"]
 
 import asyncio
 import asyncgcodecli.logger as logger
-from asyncgcodecli.driver import \
-    GenericDriver, \
-    GCodeMoveCommand, \
-    GCodeSetSpindleCommand, \
-    GCodeWaitCommand, \
-    GCodeHomeCommand, \
-    TimeoutException
+from asyncgcodecli.driver import (
+    GenericDriver,
+    GCodeMoveCommand,
+    GCodeSetSpindleCommand,
+    GCodeWaitCommand,
+    GCodeHomeCommand,
+    TimeoutException,
+)
 
 
 class Plotter(GenericDriver):
@@ -42,19 +40,15 @@ class Plotter(GenericDriver):
                 plotter = Plotter(port)
                 plotter.start()
                 await plotter.ready()
-                logger.log(
-                    logger.INFO,
-                    "Executing script")
+                logger.log(logger.INFO, "Executing script")
                 await script(plotter)
-                logger.log(
-                    logger.INFO,
-                    "Script executed successfully")
+                logger.log(logger.INFO, "Script executed successfully")
                 await plotter.wait_queue_empty()
                 plotter.stop()
                 await asyncio.sleep(2)
             except TimeoutException:
                 logger.log(
-                    logger.FATAL,
-                    "Script not printed because of printer timeout")
+                    logger.FATAL, "Script not printed because of printer timeout"
+                )
 
         asyncio.run(do_execute_on_plotter())

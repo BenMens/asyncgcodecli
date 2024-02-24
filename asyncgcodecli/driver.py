@@ -9,11 +9,11 @@ import asyncio.events
 import asyncgcodecli.logger as logger
 
 __all__ = [
-    'GCodeDeviceEvent',
-    'GCodeDeviceConnectEvent',
-    'GCodeGenericCommand',
-    'ResponseReveivedEvent',
-    'GenericDriver',
+    "GCodeDeviceEvent",
+    "GCodeDeviceConnectEvent",
+    "GCodeGenericCommand",
+    "ResponseReveivedEvent",
+    "GenericDriver",
 ]
 
 
@@ -105,7 +105,7 @@ class GCodeCommand:
         GCodeCommand.nextId += 1
 
     def command(self):
-        return b''
+        return b""
 
 
 class GCodeGenericCommand(GCodeCommand):
@@ -113,11 +113,11 @@ class GCodeGenericCommand(GCodeCommand):
         super().__init__(*args, **kw)
 
         # remove comment
-        gcode = re.sub(r';.*', '', gcode)
-        gcode = re.sub(r'\(.*\)', '', gcode)
-        gcode = gcode.replace('\n', '')
+        gcode = re.sub(r";.*", "", gcode)
+        gcode = re.sub(r"\(.*\)", "", gcode)
+        gcode = gcode.replace("\n", "")
 
-        self.gcode = str.encode(gcode) + b'\r'
+        self.gcode = str.encode(gcode) + b"\r"
 
     def command(self):
         return self.gcode
@@ -132,17 +132,17 @@ class GCodeMoveCommand(GCodeCommand):
         self.speed = speed
 
     def command(self):
-        result = b'G1'
+        result = b"G1"
         if self.x is not None:
-            result += b' X%.2f' % (self.x)
+            result += b" X%.2f" % (self.x)
         if self.y is not None:
-            result += b' Y%.2f' % (self.y)
+            result += b" Y%.2f" % (self.y)
         if self.z is not None:
-            result += b' Z%.2f' % (self.z)
+            result += b" Z%.2f" % (self.z)
         if self.speed is not None:
-            result += b' F%.2f' % (self.speed)
+            result += b" F%.2f" % (self.speed)
 
-        result += b'\r'
+        result += b"\r"
         return result
 
 
@@ -151,7 +151,7 @@ class GCodeHomeCommand(GCodeCommand):
         super().__init__(*args, **kw)
 
     def command(self):
-        return b'$h\r'
+        return b"$h\r"
 
 
 class GCodeSetSpindleCommand(GCodeCommand):
@@ -160,7 +160,7 @@ class GCodeSetSpindleCommand(GCodeCommand):
         self.pos = pos
 
     def command(self):
-        return b'M3 S%.2f\r' % (self.pos)
+        return b"M3 S%.2f\r" % (self.pos)
 
 
 class GCodeWaitCommand(GCodeCommand):
@@ -169,7 +169,7 @@ class GCodeWaitCommand(GCodeCommand):
         self.time = time
 
     def command(self):
-        return b'G4 P%.2f\r' % (self.time)
+        return b"G4 P%.2f\r" % (self.time)
 
 
 class SerialReceiveThread(threading.Thread):
@@ -189,9 +189,7 @@ class SerialReceiveThread(threading.Thread):
 
             await self.event_queue.put(event)
 
-        future = asyncio.run_coroutine_threadsafe(
-                do_post_event(event),
-                self._loop)
+        future = asyncio.run_coroutine_threadsafe(do_post_event(event), self._loop)
         return future.result()
 
     def write(self, gcode):
@@ -199,21 +197,21 @@ class SerialReceiveThread(threading.Thread):
         logger.log(logger.TRACE, "transmitted: {}", gcode.decode("utf-8"))
 
     def run(self):
-        logger.log(logger.INFO, 'Connecting to {} ', (self.port))
+        logger.log(logger.INFO, "Connecting to {} ", (self.port))
 
         if not self.__serial.is_open:
             for i in range(0, 5):
-                if (self.stop):
+                if self.stop:
                     break
                 try:
                     if i > 0:
                         logger.log(
-                            logger.INFO, 'Connecting to {} retry {}',
-                            (self.port, i))
+                            logger.INFO, "Connecting to {} retry {}", (self.port, i)
+                        )
                     self.__serial.port = self.port
                     self.__serial.open()
                     self.post_event(GCodeDeviceConnectEvent(True))
-                    logger.log(logger.INFO, 'Connected.')
+                    logger.log(logger.INFO, "Connected.")
                     break
 
                 except serial.SerialException:
@@ -221,51 +219,44 @@ class SerialReceiveThread(threading.Thread):
 
         if not self.__serial.is_open and not self.stop:
             self.post_event(GCodeDeviceConnectEvent(False))
-            logger.log(logger.INFO, 'Timeout.')
+            logger.log(logger.INFO, "Timeout.")
             logger.log(
                 logger.FATAL,
                 'Could not connect to device "{}". Timeout occured.',
-                (self.port))
+                (self.port),
+            )
 
-        response = ''
+        response = ""
 
-        while (self.__serial.is_open):
-            if (self.stop):
+        while self.__serial.is_open:
+            if self.stop:
                 break
 
             try:
                 b = self.__serial.read(size=1)
                 if b:
-                    if b == b'\n' or b == b'\r':
-                        if (len(response) > 0):
-                            self.post_event(
-                                ResponseReveivedEvent(response))
-                            response = ''
+                    if b == b"\n" or b == b"\r":
+                        if len(response) > 0:
+                            self.post_event(ResponseReveivedEvent(response))
+                            response = ""
                     else:
                         response += b.decode("utf-8")
 
             except serial.SerialException:
                 self.post_event(GCodeDeviceConnectEvent(False))
                 self.__serial.close()
-                print('Connection lost!')
+                print("Connection lost!")
 
-        if (self.__serial.is_open):
+        if self.__serial.is_open:
             self.__serial.close()
 
-        logger.log(
-            logger.TRACE,
-            "SerialReceiveThread for {} stopped",
-            self.port)
+        logger.log(logger.TRACE, "SerialReceiveThread for {} stopped", self.port)
 
 
 class GenericDriver:
     def __init__(
-            self,
-            port,
-            async_event_queue=None,
-            advanced_flow_control=False,
-            *args,
-            **kw):
+        self, port, async_event_queue=None, advanced_flow_control=False, *args, **kw
+    ):
         super().__init__(*args, **kw)
         self.__port = port
         self.__async_event_queue = async_event_queue
@@ -280,7 +271,7 @@ class GenericDriver:
         self.__processed_tail = 0
         self.__gcode_queue = []
         self.__send_limit = 128
-        self.__status = 'Unknown'
+        self.__status = "Unknown"
         self._ready_future = asyncio.Future()
         self.settings = {}
         self.__check_queue_empty()
@@ -299,8 +290,10 @@ class GenericDriver:
                 if isinstance(event, ResponseReveivedEvent):
                     self._process_response(event.response)
 
-                if isinstance(event, GCodeDeviceConnectEvent) and \
-                        event.connected is False:
+                if (
+                    isinstance(event, GCodeDeviceConnectEvent)
+                    and event.connected is False
+                ):
                     self._ready_future.set_exception(TimeoutException())
                     self.stop()
 
@@ -310,11 +303,12 @@ class GenericDriver:
 
     def start(self):
         self.__serial = SerialReceiveThread(
-            self.__port,
-            asyncio.events.get_running_loop())
+            self.__port, asyncio.events.get_running_loop()
+        )
 
         self.__process_serial_events_task = asyncio.create_task(
-            self.__process_serial_events())
+            self.__process_serial_events()
+        )
 
         self.__serial.start()
 
@@ -336,15 +330,14 @@ class GenericDriver:
             if head.send and not head.confirmed:
                 unconfirmed_commands_in_progress = True
 
-            if (unconfirmed_commands_in_progress
-                    and not self.__advanced_flow_control):
+            if unconfirmed_commands_in_progress and not self.__advanced_flow_control:
                 break
             if head.send:
                 continue
 
             command = head.command()
             command_len = len(command)
-            if (command_len > self.__send_limit):
+            if command_len > self.__send_limit:
                 break
 
             self.__serial.write(command)
@@ -353,7 +346,7 @@ class GenericDriver:
             head.send = True
 
             if not head.expect_ok:
-                self._confirm_command({'result': 'ok', 'error_code': 0})
+                self._confirm_command({"result": "ok", "error_code": 0})
 
             if not head.confirmed:
                 unconfirmed_commands_in_progress = True
@@ -404,28 +397,28 @@ class GenericDriver:
         return self._ready_future
 
     def _queue_get_status(self):
-        self.queue_command(GCodeGenericCommand('?'))
+        self.queue_command(GCodeGenericCommand("?"))
 
     async def wait_for_idle(self):
-        self.__status = 'Unknown'
+        self.__status = "Unknown"
         while True:
-            if self.__status == 'Idle':
+            if self.__status == "Idle":
                 break
             self._queue_get_status()
             await asyncio.sleep(0.1)
 
     def _process_response(self, response):
-        m = re.compile(r'\<?(.*)\>').match(response)
+        m = re.compile(r"\<?(.*)\>").match(response)
         if m is not None:
             self._process_status(m[1])
 
-        if (response == "ok"):
-            self._confirm_command({'result': 'ok', 'error_code': 0})
+        if response == "ok":
+            self._confirm_command({"result": "ok", "error_code": 0})
 
         if response == "Grbl 1.1h ['$' for help]":
             self._reset()
 
-            settings_command = GCodeGenericCommand('$$')
+            settings_command = GCodeGenericCommand("$$")
             self.queue_command(settings_command)
 
             async def wait_for_settings(settings_command):
@@ -440,20 +433,20 @@ class GenericDriver:
 
             asyncio.create_task(wait_for_settings(settings_command))
 
-        m = re.compile(r'\$([0-9]+)=([0-9]+\.?[0-9]*).*').match(response)
+        m = re.compile(r"\$([0-9]+)=([0-9]+\.?[0-9]*).*").match(response)
         if m is not None:
             self.settings[m[1]] = m[2]
 
-        m = re.compile(r'error:(.*)').match(response)
+        m = re.compile(r"error:(.*)").match(response)
         if m is not None:
             # ToDo set error
-            self._confirm_command({'result': 'error', 'error_code': m[1]})
+            self._confirm_command({"result": "error", "error_code": m[1]})
 
-        m = re.compile(r'E([0-9]*)').match(response)
+        m = re.compile(r"E([0-9]*)").match(response)
         if m is not None:
             # ToDo set error
-            self._confirm_command({'result': 'error', 'error_code': m[1]})
+            self._confirm_command({"result": "error", "error_code": m[1]})
 
     def _process_status(self, status):
-        components = status.split('|')
+        components = status.split("|")
         self.__status = components[0]

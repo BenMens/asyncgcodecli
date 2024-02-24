@@ -1,0 +1,28 @@
+[project]
+name = "asyncgcodecli"
+version = "1.0.0"
+authors = [
+  { name="Ben Mens", email="ben.mens@gmail.com" },
+]
+description = "Client library to control gcode severs"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "future>=1.0.0",
+  "iso8601>=2.0.0",
+  "pyserial>=3.5",
+  "PyYAML>=6.0.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/BenMens/asyncgcodecli"
+Issues = "https://github.com/BenMens/asyncgcodecli/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

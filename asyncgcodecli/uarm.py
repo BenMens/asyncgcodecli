@@ -1,17 +1,15 @@
 """Driver for the UArm Swift Pro."""
 
-
-__all__ = [
-    'UArm'
-]
+__all__ = ["UArm"]
 
 import asyncio
 import asyncgcodecli.logger as logger
-from asyncgcodecli.driver import \
-    GenericDriver, \
-    GCodeGenericCommand, \
-    GCodeMoveCommand, \
-    TimeoutException
+from asyncgcodecli.driver import (
+    GenericDriver,
+    GCodeGenericCommand,
+    GCodeMoveCommand,
+    TimeoutException,
+)
 
 
 class UArm(GenericDriver):
@@ -30,11 +28,11 @@ class UArm(GenericDriver):
         self.limit_switch_on = False
 
     def _process_status(self, status):
-        components = status.split(',')
+        components = status.split(",")
         self.__status = components[0]
 
     def _queue_get_status(self):
-        self.queue_command(GCodeGenericCommand('?', expect_ok=False))
+        self.queue_command(GCodeGenericCommand("?", expect_ok=False))
 
     def _process_response(self, response):
         super()._process_response(response)
@@ -46,7 +44,7 @@ class UArm(GenericDriver):
             self.limit_switch_on = False
 
         if response == "@1":
-            settings_command = GCodeGenericCommand('$$')
+            settings_command = GCodeGenericCommand("$$")
             self.queue_command(settings_command)
 
             async def wait_for_settings(settings_command):
@@ -97,8 +95,7 @@ class UArm(GenericDriver):
         GCodeResult
             Een future voor het resultaat.
         """
-        return self.queue_command(
-            GCodeGenericCommand('G2202 N3 V%.2f F1' % angle))
+        return self.queue_command(GCodeGenericCommand("G2202 N3 V%.2f F1" % angle))
 
     def set_mode(self, mode: int):
         """
@@ -123,8 +120,7 @@ class UArm(GenericDriver):
         GCodeResult
             Een future voor het resultaat.
         """
-        return self.queue_command(
-            GCodeGenericCommand('M2400 S{}'.format(mode)))
+        return self.queue_command(GCodeGenericCommand("M2400 S{}".format(mode)))
 
     def set_pump(self, on: bool):
         """
@@ -141,9 +137,9 @@ class UArm(GenericDriver):
             Een future voor het resultaat.
         """
         if on:
-            return self.queue_command(GCodeGenericCommand('M2231 V1'))
+            return self.queue_command(GCodeGenericCommand("M2231 V1"))
         else:
-            return self.queue_command(GCodeGenericCommand('M2231 V0'))
+            return self.queue_command(GCodeGenericCommand("M2231 V0"))
 
     def set_buzzer(self, freq: float, time: float):
         """
@@ -164,7 +160,8 @@ class UArm(GenericDriver):
             Een future voor het resultaat.
         """
         return self.queue_command(
-            GCodeGenericCommand('M2210 F%.2f T%.2f' % (freq, time)))
+            GCodeGenericCommand("M2210 F%.2f T%.2f" % (freq, time))
+        )
 
     def arc(self, clockwise=True, **kw):
         """
@@ -201,26 +198,26 @@ class UArm(GenericDriver):
         GCodeResult
             Een future voor het resultaat.
         """
-        command = 'G2' if clockwise else 'G3'
-        if 'r' in kw is not None:
-            if 'x' in kw:
-                command += ' X%.2f' % kw['x']
-            if 'y' in kw:
-                command += ' Y%.2f' % kw['y']
-            if 'r' in kw:
-                command += ' R%.2f' % kw['r']
+        command = "G2" if clockwise else "G3"
+        if "r" in kw is not None:
+            if "x" in kw:
+                command += " X%.2f" % kw["x"]
+            if "y" in kw:
+                command += " Y%.2f" % kw["y"]
+            if "r" in kw:
+                command += " R%.2f" % kw["r"]
 
             return self.queue_command(GCodeGenericCommand(command))
 
-        elif 'i' in kw or 'j' in kw:
-            if 'x' in kw:
-                command += ' X%.2f' % kw['x']
-            if 'y' in kw:
-                command += ' Y%.2f' % kw['y']
-            if 'i' in kw:
-                command += ' I%.2f' % kw['i']
-            if 'j' in kw:
-                command += ' J%.2f' % kw['j']
+        elif "i" in kw or "j" in kw:
+            if "x" in kw:
+                command += " X%.2f" % kw["x"]
+            if "y" in kw:
+                command += " Y%.2f" % kw["y"]
+            if "i" in kw:
+                command += " I%.2f" % kw["i"]
+            if "j" in kw:
+                command += " J%.2f" % kw["j"]
 
             return self.queue_command(GCodeGenericCommand(command))
 
@@ -275,6 +272,7 @@ class UArm(GenericDriver):
             UArm.execute_on_robotarm('/dev/cu.usbmodem14101', do_move_arm)
 
         """
+
         async def do_execute():
             try:
                 uarm = UArm(port)
@@ -282,21 +280,17 @@ class UArm(GenericDriver):
                 uarm.start()
                 await uarm.ready()
 
-                logger.log(
-                    logger.INFO,
-                    "Executing script")
+                logger.log(logger.INFO, "Executing script")
                 await script(uarm)
-                logger.log(
-                    logger.INFO,
-                    "Script executed successfully")
+                logger.log(logger.INFO, "Script executed successfully")
 
                 await uarm.wait_queue_empty()
                 uarm.stop()
                 await asyncio.sleep(2)
             except TimeoutException:
                 logger.log(
-                    logger.FATAL,
-                    "Script not printed because of printer timeout")
+                    logger.FATAL, "Script not printed because of printer timeout"
+                )
 
         asyncio.run(do_execute())
 
@@ -325,6 +319,7 @@ class UArm(GenericDriver):
                 ['/dev/cu.usbmodem14101', '/dev/cu.usbmodem14201'],
                 do_move_arm)
         """
+
         async def do_execute():
             try:
                 uarms = [UArm(p) for p in port]
@@ -333,13 +328,9 @@ class UArm(GenericDriver):
                     uarm.start()
                     await uarm.ready()
 
-                logger.log(
-                    logger.INFO,
-                    "Executing script")
+                logger.log(logger.INFO, "Executing script")
                 await script(uarms)
-                logger.log(
-                    logger.INFO,
-                    "Script executed successfully")
+                logger.log(logger.INFO, "Script executed successfully")
 
                 for uarm in uarms:
                     await uarm.wait_queue_empty()
@@ -347,7 +338,7 @@ class UArm(GenericDriver):
                     await asyncio.sleep(2)
             except TimeoutException:
                 logger.log(
-                    logger.FATAL,
-                    "Script not printed because of printer timeout")
+                    logger.FATAL, "Script not printed because of printer timeout"
+                )
 
         asyncio.run(do_execute())

@@ -1,6 +1,5 @@
 """Loger."""
 
-
 # FATAL     Severe errors that cause premature termination.
 #           Expect these to be immediately visible on a status console.
 # ERROR     Other runtime errors or unexpected conditions. Expect these
@@ -31,35 +30,18 @@ __log_level = TRACE
 __default_layout = {
     "level_name": "UNKNOWN",
     "format_string": "{color}{level_name:10} {msg}",
-    "color": "\033[32m"
+    "color": "\033[32m",
 }
 
 
 __layout = {
-    NONE: {
-        "level_name": "NONE"
-    },
-    FATAL: {
-        "level_name": "FATAL",
-        "color": "\033[31m"
-    },
-    ERROR: {
-        "level_name": "ERROR",
-        "color": "\033[31m"
-    },
-    WARNING: {
-        "level_name": "WARNING",
-        "color": "\033[33m"
-    },
-    INFO: {
-        "level_name": "INFO"
-    },
-    DEBUG: {
-        "level_name": "DEBUG"
-    },
-    TRACE: {
-        "level_name": "TRACE"
-    }
+    NONE: {"level_name": "NONE"},
+    FATAL: {"level_name": "FATAL", "color": "\033[31m"},
+    ERROR: {"level_name": "ERROR", "color": "\033[31m"},
+    WARNING: {"level_name": "WARNING", "color": "\033[33m"},
+    INFO: {"level_name": "INFO"},
+    DEBUG: {"level_name": "DEBUG"},
+    TRACE: {"level_name": "TRACE"},
 }
 
 
@@ -69,7 +51,7 @@ def set_log_level(level):
     __log_level = level
 
 
-def log(level, msg, format=None, end='\n'):
+def log(level, msg, format=None, end="\n"):
     """Log a message."""
     if __log_level >= level:
         layout = {}
@@ -80,12 +62,12 @@ def log(level, msg, format=None, end='\n'):
             msg = msg.format(*format)
         else:
             msg = msg.format(format)
-        msg = layout['format_string'].format(msg=msg, **layout)
+        msg = layout["format_string"].format(msg=msg, **layout)
 
         print(msg, end=end, flush=True)
 
 
-def append(level, msg, format=None, end='\n'):
+def append(level, msg, format=None, end="\n"):
     """Append to log a message."""
     if __log_level >= level:
         msg = msg.format(format)

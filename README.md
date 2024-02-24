@@ -19,7 +19,7 @@ pip3 install git+https://github.com/BenMens/asyncgcodecli@release
 ## Update to latest version ##
 
 ```bash
-pip3 install --upgrade  git+https://github.com/BenMens/asyncgcodecli@release
+pip3 install --upgrade git+https://github.com/BenMens/asyncgcodecli@release
 ```
 
 ## Documentation ##
