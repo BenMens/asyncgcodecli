@@ -264,15 +264,17 @@ class GenericDriver:
         self.__serial = None
         self.__process_serial_events_task = None
         self.__queue_empty_futures = []
-        self._reset()
+        self._ready_future = asyncio.Future()
+        self._process_server_reset()
 
-    def _reset(self):
+    def _process_server_reset(self):
         self.__conected = False
         self.__processed_tail = 0
         self.__gcode_queue = []
         self.__send_limit = 128
         self.__status = "Unknown"
-        self._ready_future = asyncio.Future()
+        if self._ready_future.done():
+            self._ready_future = asyncio.Future()
         self.settings = {}
         self.__check_queue_empty()
 
@@ -284,24 +286,22 @@ class GenericDriver:
             self.__async_event_queue.put_nowait(event)
 
     async def __process_serial_events(self):
-        while True:
-            while self.__serial is not None:
-                event = await self.__serial.event_queue.get()
-                if isinstance(event, ResponseReveivedEvent):
-                    self._process_response(event.response)
+        while self.__serial is not None:
+            event = await self.__serial.event_queue.get()
+            if isinstance(event, ResponseReveivedEvent):
+                self._process_response(event.response)
 
-                if (
-                    isinstance(event, GCodeDeviceConnectEvent)
-                    and event.connected is False
-                ):
-                    self._ready_future.set_exception(TimeoutException())
-                    self.stop()
+            if isinstance(event, GCodeDeviceConnectEvent) and event.connected is False:
+                self._ready_future.set_exception(TimeoutException())
 
-                self.__check_queue_empty()
+            self.__check_queue_empty()
 
-                self._forward_event(event)
+            self._forward_event(event)
 
     def start(self):
+        def on_serial_done(task):
+            self.stop()
+
         self.__serial = SerialReceiveThread(
             self.__port, asyncio.events.get_running_loop()
         )
@@ -309,6 +309,8 @@ class GenericDriver:
         self.__process_serial_events_task = asyncio.create_task(
             self.__process_serial_events()
         )
+
+        self.__process_serial_events_task.add_done_callback(on_serial_done)
 
         self.__serial.start()
 
@@ -416,7 +418,7 @@ class GenericDriver:
             self._confirm_command({"result": "ok", "error_code": 0})
 
         if response == "Grbl 1.1h ['$' for help]":
-            self._reset()
+            self._process_server_reset()
 
             settings_command = GCodeGenericCommand("$$")
             self.queue_command(settings_command)
