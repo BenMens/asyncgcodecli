@@ -3,12 +3,9 @@
 __all__ = ["UArm"]
 
 import asyncio
-import asyncgcodecli.logger as logger
 from asyncgcodecli.driver import (
     GenericDriver,
     GCodeGenericCommand,
-    GCodeMoveCommand,
-    TimeoutException,
 )
 
 
@@ -53,31 +50,6 @@ class UArm(GenericDriver):
                 self._ready_future.set_result(True)
 
             asyncio.create_task(wait_for_settings(settings_command))
-
-    def move(self, x: float, y: float, z: float, speed: float = 100):
-        """
-        Beweeg robotarm.
-
-        Beweeg de robotarm naar het punt (x, y, z) met de
-        aangegeven snelheid.
-
-        Parameters
-        ----------
-        x : float
-            x-doelpositie
-        y : float
-            y-doelpositie
-        z : float
-            z-doelpositie
-        speed : float
-            De beweegsnelheid. 200 is het maximum.
-
-        Returns
-        -------
-        GCodeResult
-            Een future voor het resultaat.
-        """
-        return self.queue_command(GCodeMoveCommand(x=x, y=y, z=z, speed=speed))
 
     def set_wrist(self, angle: float):
         """
@@ -220,125 +192,3 @@ class UArm(GenericDriver):
                 command += " J%.2f" % kw["j"]
 
             return self.queue_command(GCodeGenericCommand(command))
-
-    async def sleep(self, time: float):
-        """
-        Wacht even.
-
-        Wacht eerst tot de robotarm alle opdrachten in de wachtrij heeft
-        uitgevoerd en klaar is met bewegen. Wacht daarna nog een
-        beetje extra.
-
-        Parameters
-        ----------
-        time : float De extra wachtijd in seconden
-
-        Returns
-        -------
-        coroutine
-            Deze functie geeft een coroutine als resultaat. Daarom
-            moet je await gebruiken.
-
-        Example
-        -------
-
-        Wacht 1 seconde::
-
-            await uarm.sleep(1)
-        """
-        await self.wait_queue_empty()
-        await asyncio.sleep(time)
-
-    @staticmethod
-    def execute_on_robotarm(port: any, script):
-        """
-        Voer een script uit op de UArm.
-
-        Parameters
-        ----------
-        port : str
-            bijvoorbeeld:
-                '/dev/cu.usbmodem14101'
-        script : script
-            Het uit te voeren script.
-
-        Examples
-        --------
-        Voorbeeld met 1 robotarm::
-
-            async def do_move_arm(uarm: UArm):
-                uarm.move(150, 0, 150, 200)
-
-            UArm.execute_on_robotarm('/dev/cu.usbmodem14101', do_move_arm)
-
-        """
-
-        async def do_execute():
-            try:
-                uarm = UArm(port)
-
-                uarm.start()
-                await uarm.ready()
-
-                logger.log(logger.INFO, "Executing script")
-                await script(uarm)
-                logger.log(logger.INFO, "Script executed successfully")
-
-                await uarm.wait_queue_empty()
-                uarm.stop()
-                await asyncio.sleep(2)
-            except TimeoutException:
-                logger.log(
-                    logger.FATAL, "Script not printed because of printer timeout"
-                )
-
-        asyncio.run(do_execute())
-
-    @staticmethod
-    def execute_on_robotarms(port: list, script):
-        """
-        Voer een script uit op meerdere UArms.
-
-        Parameters
-        ----------
-        port : list
-            bijvoorbeeld:
-                ['/dev/cu.usbmodem14101', '/dev/cu.usbmodem14201']
-        script : script
-            Het uit te voeren script.
-
-        Examples
-        --------
-        Voorbeeld met 2 robotarmen::
-
-            async def do_move_arm(uarms: UArm):
-                for arm in arms:
-                    uarm.move(150, 0, 150, 200)
-
-            UArm.execute_on_robotarms(
-                ['/dev/cu.usbmodem14101', '/dev/cu.usbmodem14201'],
-                do_move_arm)
-        """
-
-        async def do_execute():
-            try:
-                uarms = [UArm(p) for p in port]
-
-                for uarm in uarms:
-                    uarm.start()
-                    await uarm.ready()
-
-                logger.log(logger.INFO, "Executing script")
-                await script(uarms)
-                logger.log(logger.INFO, "Script executed successfully")
-
-                for uarm in uarms:
-                    await uarm.wait_queue_empty()
-                    uarm.stop()
-                    await asyncio.sleep(2)
-            except TimeoutException:
-                logger.log(
-                    logger.FATAL, "Script not printed because of printer timeout"
-                )
-
-        asyncio.run(do_execute())

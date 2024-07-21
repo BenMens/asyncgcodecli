@@ -1,6 +1,6 @@
 """Voorbeeld met 2 armen."""
 
-from asyncgcodecli import UArm
+from asyncgcodecli import UArm, GenericDriver
 
 
 async def move_script(uarms: UArm):
@@ -14,32 +14,36 @@ async def move_script(uarms: UArm):
         for uarm in uarms:
             await uarm.sleep(0)
 
-        uarms[0].move(150, -200, 150, 200)
-        uarms[1].move(150, 200, 150, 200)
+        uarms[0].move_linear(150, -200, 150, 200)
+        uarms[1].move_linear(150, 200, 150, 200)
 
         for uarm in uarms:
             await uarm.sleep(0)
 
-        uarms[0].move(150, 0, 150, 200)
-        uarms[1].move(150, 0, 150, 200)
+        uarms[0].move_linear(150, 0, 150, 200)
+        uarms[1].move_linear(150, 0, 150, 200)
 
     for uarm in uarms:
         await uarm.sleep(0)
 
     for uarm in uarms:
         # make a nice landing
-        uarm.move(150, 0, 20, 200)
+        uarm.move_linear(150, 0, 20, 200)
 
     for uarm in uarms:
         await uarm.sleep(0)
 
     for uarm in uarms:
         # make a nice landing
-        uarm.move(150, 0, 0, 10)
+        uarm.move_linear(150, 0, 0, 10)
 
 
 # Execute move_script on the UArm that is
 # connected to /dev/cu.usbmodem14101
-UArm.execute_on_robotarms(
-    ["/dev/cu.usbmodem14101", "/dev/cu.usbmodem14201"], move_script
+GenericDriver.execute_on_devices(
+    lambda: [
+        UArm("/dev/cu.usbserial-1420"),
+        UArm("/dev/cu.usbserial-1421"),
+    ],
+    move_script,
 )

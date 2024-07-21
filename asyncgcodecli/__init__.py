@@ -8,9 +8,11 @@ from .driver import (
     CommandStartedEvent,
     CommandProcessedEvent,
     GCodeGenericCommand,
+    GenericDriver,
 )
 from .uarm import UArm
 from .grblplotter import Plotter
+from .robotarm import RobotArm
 
 
 __all__ = [
@@ -23,4 +25,6 @@ __all__ = [
     "CommandStartedEvent",
     "CommandProcessedEvent",
     "GCodeGenericCommand",
+    "RobotArm",
+    "GenericDriver",
 ]

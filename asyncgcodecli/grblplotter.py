@@ -6,7 +6,6 @@ import asyncio
 import asyncgcodecli.logger as logger
 from asyncgcodecli.driver import (
     GenericDriver,
-    GCodeMoveCommand,
     GCodeSetSpindleCommand,
     GCodeWaitCommand,
     GCodeHomeCommand,
@@ -26,9 +25,6 @@ class Plotter(GenericDriver):
         self.queue_command(GCodeSetSpindleCommand(900))
         return self.queue_command(GCodeWaitCommand(1))
 
-    def move(self, x, y, speed=10000):
-        return self.queue_command(GCodeMoveCommand(x=x, y=y, speed=speed))
-
     def home(self):
         # self.queue_command(GCodeGenericCommand("$27=2.000"))
         return self.queue_command(GCodeHomeCommand())
@@ -40,6 +36,9 @@ class Plotter(GenericDriver):
                 plotter = Plotter(port)
                 plotter.start()
                 await plotter.ready()
+                logger.log(logger.INFO, "Homing...")
+                await plotter.home()
+                await plotter.pen_up()
                 logger.log(logger.INFO, "Executing script")
                 await script(plotter)
                 logger.log(logger.INFO, "Script executed successfully")

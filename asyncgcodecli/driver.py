@@ -2,6 +2,7 @@
 
 import serial
 import threading
+import traceback
 import time
 import re
 import asyncio
@@ -14,6 +15,9 @@ __all__ = [
     "GCodeGenericCommand",
     "ResponseReveivedEvent",
     "GenericDriver",
+    "GRBLDriver",
+    "GCodeMoveRapidCommand",
+    "GCodeMoveLinearCommand",
 ]
 
 
@@ -123,7 +127,30 @@ class GCodeGenericCommand(GCodeCommand):
         return self.gcode
 
 
-class GCodeMoveCommand(GCodeCommand):
+class GCodeMoveRapidCommand(GCodeCommand):
+    def __init__(self, x=None, y=None, z=None, speed=None, *args, **kw):
+        super().__init__(*args, **kw)
+        self.x = x
+        self.y = y
+        self.z = z
+        self.speed = speed
+
+    def command(self):
+        result = b"G0"
+        if self.x is not None:
+            result += b" X%.2f" % (self.x)
+        if self.y is not None:
+            result += b" Y%.2f" % (self.y)
+        if self.z is not None:
+            result += b" Z%.2f" % (self.z)
+        if self.speed is not None:
+            result += b" F%.2f" % (self.speed)
+
+        result += b"\r"
+        return result
+
+
+class GCodeMoveLinearCommand(GCodeCommand):
     def __init__(self, x=None, y=None, z=None, speed=None, *args, **kw):
         super().__init__(*args, **kw)
         self.x = x
@@ -243,9 +270,9 @@ class SerialReceiveThread(threading.Thread):
                         response += b.decode("utf-8")
 
             except serial.SerialException:
+                logger.log(logger.FATAL, "Connection lost! {}", traceback.format_exc())
                 self.post_event(GCodeDeviceConnectEvent(False))
                 self.__serial.close()
-                print("Connection lost!")
 
         if self.__serial.is_open:
             self.__serial.close()
@@ -264,8 +291,7 @@ class GenericDriver:
         self.__serial = None
         self.__process_serial_events_task = None
         self.__queue_empty_futures = []
-        self._ready_future = asyncio.Future()
-        self._process_server_reset()
+        self._ready_future = None
 
     def _process_server_reset(self):
         self.__conected = False
@@ -273,7 +299,7 @@ class GenericDriver:
         self.__gcode_queue = []
         self.__send_limit = 128
         self.__status = "Unknown"
-        if self._ready_future.done():
+        if self._ready_future is None or self._ready_future.done():
             self._ready_future = asyncio.Future()
         self.settings = {}
         self.__check_queue_empty()
@@ -286,21 +312,31 @@ class GenericDriver:
             self.__async_event_queue.put_nowait(event)
 
     async def __process_serial_events(self):
-        while self.__serial is not None:
-            event = await self.__serial.event_queue.get()
-            if isinstance(event, ResponseReveivedEvent):
-                self._process_response(event.response)
+        try:
+            while self.__serial is not None:
+                event = await self.__serial.event_queue.get()
+                if isinstance(event, ResponseReveivedEvent):
+                    self._process_response(event.response)
 
-            if isinstance(event, GCodeDeviceConnectEvent) and event.connected is False:
-                self._ready_future.set_exception(TimeoutException())
+                if (
+                    isinstance(event, GCodeDeviceConnectEvent)
+                    and event.connected is False
+                ):
+                    self._ready_future.set_exception(TimeoutException())
 
-            self.__check_queue_empty()
+                self.__check_queue_empty()
 
-            self._forward_event(event)
+                self._forward_event(event)
+        except Exception:
+            logger.log(logger.FATAL, "error {}", traceback.format_exc())
 
     def start(self):
+        self._process_server_reset()
+
         def on_serial_done(task):
             self.stop()
+
+        logger.log(logger.TRACE, "starting")
 
         self.__serial = SerialReceiveThread(
             self.__port, asyncio.events.get_running_loop()
@@ -354,18 +390,21 @@ class GenericDriver:
                 unconfirmed_commands_in_progress = True
 
     def _confirm_command(self, result):
-        head = self.__gcode_queue[self.__processed_tail]
-        head.confirmed = True
-        head.gcode_result.set_result(result)
-        self.__processed_tail += 1
-        self._forward_event(CommandProcessedEvent(head))
-        self.__send_limit += len(head.command())
-        print(self.__send_limit)
+        try:
+            head = self.__gcode_queue[self.__processed_tail]
+            head.confirmed = True
+            head.gcode_result.set_result(result)
+            self.__processed_tail += 1
+            self._forward_event(CommandProcessedEvent(head))
+            self.__send_limit += len(head.command())
+            print(self.__send_limit)
 
-        if self.__processed_tail < len(self.__gcode_queue):
-            new_head = self.__gcode_queue[self.__processed_tail]
-            self._forward_event(CommandStartedEvent(new_head))
-        self.__process_queue()
+            if self.__processed_tail < len(self.__gcode_queue):
+                new_head = self.__gcode_queue[self.__processed_tail]
+                self._forward_event(CommandStartedEvent(new_head))
+            self.__process_queue()
+        except Exception as e:
+            logger.log(logger.FATAL, "error {}", e.with_traceback())
 
     def queue_command(self, command):
         self.__gcode_queue.append(command)
@@ -389,25 +428,26 @@ class GenericDriver:
 
             self.__queue_empty_futures.clear()
 
-    def wait_queue_empty(self):
+    async def wait_queue_empty(self):
         future = asyncio.Future()
         self.__queue_empty_futures.append(future)
         self.__check_queue_empty()
-        return future
+        return await future
 
-    def ready(self):
-        return self._ready_future
+    async def ready(self):
+        return await self._ready_future
 
     def _queue_get_status(self):
         self.queue_command(GCodeGenericCommand("?"))
 
     async def wait_for_idle(self):
+        await self.wait_queue_empty()
         self.__status = "Unknown"
         while True:
             if self.__status == "Idle":
                 break
             self._queue_get_status()
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.5)
 
     def _process_response(self, response):
         m = re.compile(r"\<?(.*)\>").match(response)
@@ -452,3 +492,132 @@ class GenericDriver:
     def _process_status(self, status):
         components = status.split("|")
         self.__status = components[0]
+
+    def setStatus(self, status):
+        self.__status = status
+
+    async def sleep(self, time: float):
+        """
+        Wacht even.
+
+        Wacht eerst tot de robotarm alle opdrachten in de wachtrij heeft
+        uitgevoerd en klaar is met bewegen. Wacht daarna nog een
+        beetje extra.
+
+        Parameters
+        ----------
+        time : float De extra wachtijd in seconden
+
+        Returns
+        -------
+        coroutine
+            Deze functie geeft een coroutine als resultaat. Daarom
+            moet je await gebruiken.
+
+        Example
+        -------
+
+        Wacht 1 seconde::
+
+            await robotArm.sleep(1)
+        """
+        await self.wait_for_idle()
+        await asyncio.sleep(time)
+
+    @staticmethod
+    def execute_on_devices(devices, script):
+        """
+        Voer een script uit op meerdere devices.
+
+        Parameters
+        ----------
+        createArms : callback voor het creeren van RobotArms
+            bijvoorbeeld:
+                [
+                    RobotArm("/dev/cu.usbserial-1420"),
+                    RobotArm("/dev/cu.usbserial-1421"),
+                ]
+        script : script
+            Het uit te voeren script.
+
+        Examples
+        --------
+        Voorbeeld met 2 robotarmen::
+
+            async def do_move_arm(robotArms: RobotArm):
+                for arm in arms:
+                    robotArm.move(150, 0, 150, 200)
+
+            RobotArm.execute_on_devices(
+                [
+                    RobotArm("/dev/cu.usbserial-1420"),
+                    RobotArm("/dev/cu.usbserial-1421"),
+                ],
+                do_move_arm)
+        """
+
+        async def do_execute():
+            try:
+                for device in devices:
+                    device.start()
+                    await device.ready()
+
+                logger.log(logger.INFO, "Executing script")
+                await script(devices)
+                logger.log(logger.INFO, "Script executed successfully")
+
+                for device in devices:
+                    await device.wait_for_idle()
+                    device.stop()
+
+                logger.log(logger.INFO, "do_execute ended")
+
+            except TimeoutException:
+                pass
+
+            except Exception:
+                logger.log(logger.FATAL, "Error {}", traceback.format_exc())
+
+        asyncio.run(do_execute())
+
+    def move_rapid(self, x=None, y=None, z=None, speed=10000):
+        return self.queue_command(GCodeMoveRapidCommand(x=x, y=y, z=z, speed=speed))
+
+    def move_linear(self, x=None, y=None, z=None, speed=10000):
+        return self.queue_command(GCodeMoveLinearCommand(x=x, y=y, z=z, speed=speed))
+
+
+class GRBLDriver(GenericDriver):
+    """Stelt een op GRBL gebasseerd apparaat voor."""
+
+    def __init__(self, port, *args, **kw):
+        """
+        Maak een nieuw GRBLDriver object.
+
+        Parameters
+        ----------
+        port : string
+            De naam van de usb port.
+        """
+        super().__init__(port, *args, **kw)
+        self.limit_switch_on = False
+
+    def _process_response(self, response):
+        super()._process_response(response)
+
+        if response == "@6 N0 V1":
+            self.limit_switch_on = True
+
+        if response == "@6 N0 V0":
+            self.limit_switch_on = False
+
+        if response == "@1":
+            settings_command = GCodeGenericCommand("$$")
+            self.queue_command(settings_command)
+
+            async def wait_for_settings(settings_command):
+                await settings_command.gcode_result
+
+                self._ready_future.set_result(True)
+
+            asyncio.create_task(wait_for_settings(settings_command))
